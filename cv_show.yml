@@ -1,0 +1,12 @@
+nodes:
+  - id: opencv-video-capture
+    build: pip install opencv-video-capture
+    path: opencv-video-capture
+    inputs: 
+      tick: dora/timer/millis/50
+    outputs: 
+      - image
+  - id: show
+    path: show/main.py
+    inputs:
+      image: opencv-video-capture/image
