@@ -36,9 +36,10 @@ def main():
         if event["type"] == "INPUT":
             event_id = event["id"]
             if event_id == "move":
-                data = event["value"]
-                # TODO: 确认是否成功，之后找到测试方法
-                Control_Motor.Car_run = data
+                data = event["value"].to_pylist()
+                # 成功转换
+                print("my",data)
+                # Control_Motor.Car_run = data.as_py()
 
 
 if __name__ == "__main__":

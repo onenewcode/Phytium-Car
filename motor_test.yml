@@ -1,0 +1,12 @@
+nodes:
+  - id: dora-keyboard
+    build: pip install dora-keyboard
+    path: dora-keyboard
+    inputs: 
+      tick: dora/timer/millis/1000
+    outputs: 
+      - char
+  - id: motor
+    path: motor/main.py
+    inputs:
+      move: dora-keyboard/char
