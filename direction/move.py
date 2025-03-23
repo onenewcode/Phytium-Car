@@ -1,5 +1,6 @@
 from dora import Node
 import pyarrow as pa
+import time
 class Move:
     def __init__(node):
         self.node = node
@@ -57,9 +58,12 @@ class Move:
 def main():
     node = Node()
     move=Move(node)
-    for event in node:
+    while True:
         move.advance()
         time.sleep(1)
+    # move=Move(node)
+    # for event in node:
+    #     move.advance()
 
 
 if __name__ == "__main__":

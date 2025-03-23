@@ -595,7 +595,7 @@ if __name__ == "__main__":
         Control_Motor = _motor(1500, 1500, 1500, 1500)
         print("start")
         while True:
-            # 			Control_Motor.Car_run =2
+            Control_Motor.Car_run =1
             time.sleep(1)
             Control_Motor.Car_run = 0
             time.sleep(0.3)
