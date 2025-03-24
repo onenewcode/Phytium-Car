@@ -12,7 +12,7 @@ def install_dependencies():
     try:
         print("正在检查并安装依赖...")
         subprocess.check_call([
-            sys.executable,  # 使用当前Python解释器
+            sys.executable,  # 使用当前 Python 解释器
             '-m', 'pip', 'install',
             '-r', REQUIREMENTS_FILE
         ])

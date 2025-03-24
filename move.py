@@ -53,14 +53,3 @@ class Move:
 
     def rotate_right(self):
         return self.send(12)
-# 使用数值作为输入 dataw 为单纯的数值，具体参考 motor.py
-def main():
-    node = Node()
-    move=Move(node)
-    for event in node:
-        move.advance()
-        time.sleep(1)
-
-
-if __name__ == "__main__":
-    main()
