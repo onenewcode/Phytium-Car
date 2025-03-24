@@ -1,6 +1,5 @@
 from dora import Node
 from Motor import _motor
-import pyarrow as pa
 
 
 
