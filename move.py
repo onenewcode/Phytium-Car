@@ -1,10 +1,9 @@
 from dora import Node
 import pyarrow as pa
-import time
 class Move:
-    def __init__(node):
+    def __init__(self,node):
         self.node = node
-    def send(self):
+    def send(self,direction):
         """
         发送运动数据给其他节点
         Args:
@@ -17,7 +16,7 @@ class Move:
             ZeroDivisionError: 如果除数为零，则抛出异常。
         """
         direction = pa.array([direction])
-        self.node.send_output("move")
+        self.node.send_output("move",direction)
     def stop(self):
         return self.send(0)
     def advance(self):

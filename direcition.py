@@ -21,12 +21,27 @@ class ColorDetector:
         self.upper = np.array(upper_hsv)
 
     def process(self, frame):
+        """处理图像帧以识别单个网球。
+        
+        该方法对输入图像进行预处理、颜色阈值分割和轮廓检测，以识别单个网球。
+        当检测到多个符合条件的轮廓时，会选择面积最大的一个作为网球。
+        
+        Args:
+            frame: 输入的图像帧，BGR格式的numpy数组。
+            
+        Returns:
+            tuple: 包含三个元素:
+                - processed_frame: 处理后的图像，带有标记的网球位置。
+                - centers: 网球中心点坐标列表，格式为[(x, y)]。
+                - mask: 二值化掩膜图像。
+                
+        Raises:
+            None
         """
-        处理图像帧的主方法
-        :return: 处理后的图像，中心点坐标列表
-        """
+        # 预处理 - 高斯模糊减少噪声
         blurred_img = cv2.GaussianBlur(frame, (11, 11), 0)
         
+        # 中值滤波进一步减少噪声
         median_blur = cv2.medianBlur(blurred_img, 5)
 
         # 转换为 HSV 颜色空间
@@ -45,9 +60,15 @@ class ColorDetector:
         centers = []
         processed_frame = frame.copy()
         
-        for cnt in contours:
-            # 过滤小面积区域
+        # 如果有多个轮廓，只选择面积最大的一个（假设是网球）
+        if contours:
+            # 按面积排序轮廓
+            contours = sorted(contours, key=cv2.contourArea, reverse=True)
+            
+            # 只处理面积最大的轮廓
+            cnt = contours[0]
             area = cv2.contourArea(cnt)
+            
             if area > self.min_area:
                 # 获取外接矩形
                 x, y, w, h = cv2.boundingRect(cnt)
@@ -62,8 +83,13 @@ class ColorDetector:
                 cv2.circle(processed_frame, (center_x, center_y), 5, (0, 0, 255), -1)
                 
                 # 在图像上显示中心点坐标
-                cv2.putText(processed_frame, f"({center_x}, {center_y})", 
-                           (center_x - 40, center_y - 20), 
+                cv2.putText(processed_frame, f"网球: ({center_x}, {center_y})", 
+                           (center_x - 60, center_y - 20), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                
+                # 显示面积信息
+                cv2.putText(processed_frame, f"面积: {int(area)}", 
+                           (center_x - 60, center_y + 20), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         
         return processed_frame, centers, mask
