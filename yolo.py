@@ -15,7 +15,7 @@ class TennisBallTracker:
         """
         # self.move = Move(node)
         # 加载 YOLOv11 模型
-        self.model = YOLO('model/yolo11x.pt') 
+        self.model = YOLO('model/yolo11n.pt') 
         # 设置置信度阈值
         self.conf_threshold = 0.5
         
