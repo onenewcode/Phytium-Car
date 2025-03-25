@@ -17,7 +17,8 @@ def main():
             if event_id == "move":
                 data = event["value"].to_pylist()
                 Control_Motor.Car_run = data[0]
-
+        elif  event["type"] == "STOP":
+            Control_Motor.Car_run = 0
 
 if __name__ == "__main__":
     main()

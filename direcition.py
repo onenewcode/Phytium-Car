@@ -13,6 +13,7 @@ class ColorDetector:
         self.lower = np.array(lower_hsv)
         self.upper = np.array(upper_hsv)
         self.min_area = min_area
+        self.contours=[]
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     
     def set_threshold(self, lower_hsv, upper_hsv):
@@ -62,6 +63,7 @@ class ColorDetector:
         
         # 如果有多个轮廓，只选择面积最大的一个（假设是网球）
         if contours:
+            self.contours=contours
             # 按面积排序轮廓
             contours = sorted(contours, key=cv2.contourArea, reverse=True)
             

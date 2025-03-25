@@ -150,6 +150,7 @@ def main():
                             
                             # 只有当可以发送新命令时才执行控制逻辑
                             if can_send_command:
+                                print("目标比率",area_ratio)
                                 # 根据面积比例判断是否需要停车
                                 if area_ratio > 0.25:  # 目标很近
                                     if last_command != "stop":

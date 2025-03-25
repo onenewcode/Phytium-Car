@@ -1,2 +1,2 @@
 dora-rs
-cv2
+pyarrow
