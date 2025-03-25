@@ -13,9 +13,9 @@ class TennisBallTracker:
         Args:
             node: Dora 节点对象
         """
-        self.move = Move(node)
+        # self.move = Move(node)
         # 加载 YOLOv11 模型
-        self.model = YOLO('yolov11n.pt')
+        self.model = YOLO('model/yolo11x.pt') 
         # 设置置信度阈值
         self.conf_threshold = 0.5
         
@@ -44,7 +44,7 @@ class TennisBallTracker:
             检测到的网球边界框 (x1, y1, x2, y2, confidence)，如果没有检测到则返回 None
         """
         # 使用 ultralytics 进行推理
-        results = self.model(frame, classes=[32], conf=self.conf_threshold)  # 32是网球类别ID
+        results = self.model(frame, classes=[32], conf=self.conf_threshold)  # 32 是网球类别 ID
         
         # 筛选出网球检测结果
         tennis_balls = []
@@ -141,95 +141,84 @@ class TennisBallTracker:
         # 计算网球大小（用于判断距离）
         ball_size = (ball_x - ball_y) / frame_width
         
-        # 根据网球位置决定移动方向
-        if ball_x < left_threshold:
-            if ball_y < top_threshold:
-                # 左上
-                self.move.advance_left()
-                print("向左上方移动")
-            elif ball_y > bottom_threshold:
-                # 左下
-                self.move.back_left()
-                print("向左下方移动")
-            else:
-                # 左
-                self.move.turn_left()
-                print("向左转向")
-        elif ball_x > right_threshold:
-            if ball_y < top_threshold:
-                # 右上
-                self.move.advance_right()
-                print("向右上方移动")
-            elif ball_y > bottom_threshold:
-                # 右下
-                self.move.back_right()
-                print("向右下方移动")
-            else:
-                # 右
-                self.move.turn_right()
-                print("向右转向")
-        else:
-            if ball_y < top_threshold:
-                # 上
-                self.move.advance()
-                print("向前移动")
-            elif ball_y > bottom_threshold:
-                # 下
-                self.move.Back()
-                print("向后移动")
-            else:
-                # 中心区域，保持静止
-                self.move.stop()
-                print("目标在中心区域，保持静止")
+        # # 根据网球位置决定移动方向
+        # if ball_x < left_threshold:
+        #     if ball_y < top_threshold:
+        #         # 左上
+        #         self.move.advance_left()
+        #         print("向左上方移动")
+        #     elif ball_y > bottom_threshold:
+        #         # 左下
+        #         self.move.back_left()
+        #         print("向左下方移动")
+        #     else:
+        #         # 左
+        #         self.move.turn_left()
+        #         print("向左转向")
+        # elif ball_x > right_threshold:
+        #     if ball_y < top_threshold:
+        #         # 右上
+        #         self.move.advance_right()
+        #         print("向右上方移动")
+        #     elif ball_y > bottom_threshold:
+        #         # 右下
+        #         self.move.back_right()
+        #         print("向右下方移动")
+        #     else:
+        #         # 右
+        #         self.move.turn_right()
+        #         print("向右转向")
+        # else:
+        #     if ball_y < top_threshold:
+        #         # 上
+        #         self.move.advance()
+        #         print("向前移动")
+        #     elif ball_y > bottom_threshold:
+        #         # 下
+        #         self.move.Back()
+        #         print("向后移动")
+        #     else:
+        #         # 中心区域，保持静止
+        #         self.move.stop()
+        #         print("目标在中心区域，保持静止")
 
-class TennisBallTrackerNode(Node):
-    def __init__(self):
-        super().__init__()
-        self.tracker = TennisBallTracker(self)
-        self.cap = None
+
+
+       
     
-    def setup(self):
-        # 初始化摄像头
-        self.cap = cv2.VideoCapture(0)  # 使用默认摄像头
-        if not self.cap.isOpened():
-            print("无法打开摄像头")
-            return False
-        return True
-    
-    def process(self):
-        if self.cap is None or not self.cap.isOpened():
-            print("摄像头未初始化")
-            return
-            
-        # 读取一帧图像
-        ret, frame = self.cap.read()
-        if not ret:
-            print("无法获取图像帧")
-            return
-            
-        # 跟踪网球
-        processed_frame = self.tracker.track_tennis_ball(frame)
-        
-        # 显示处理后的图像
-        cv2.imshow("Tennis Ball Tracker", processed_frame)
-        
-        # 按 ESC 键退出
-        if cv2.waitKey(1) == 27:
-            self.cleanup()
-    
-    def cleanup(self):
-        if self.cap is not None:
-            self.cap.release()
-        cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
-    # 创建并运行节点
-    node = TennisBallTrackerNode()
-    if node.setup():
-        try:
-            while True:
-                node.process()
-        except KeyboardInterrupt:
-            print("程序被用户中断")
-        finally:
-            node.cleanup()
+    tracker = TennisBallTracker(1)
+    cap = cv2.VideoCapture(0)  # 打开默认摄像头
+    
+    if not cap.isOpened():
+        print("无法打开摄像头")
+        exit()
+        
+    try:
+        while True:
+            # 读取一帧图像
+            ret, frame = cap.read()
+            
+            if not ret:
+                print("无法获取图像帧")
+                break
+                
+            # 跟踪网球
+            processed_frame = tracker.track_tennis_ball(frame)
+            
+            # 显示处理后的图像
+            cv2.imshow("Tennis Ball Tracker", processed_frame)
+            
+            # 按 ESC 键退出
+            if cv2.waitKey(1) == 27:
+                break
+                
+    except KeyboardInterrupt:
+        print("程序被用户中断")
+    finally:
+        # 释放资源
+        cap.release()
+        cv2.destroyAllWindows()
+        print("程序已退出")
