@@ -2,7 +2,7 @@ from dora import Node
 import numpy as np
 import cv2
 from move import Move
-from direcition import ColorDetector
+from color_detector import ColorDetector
 import time
 
 def main():
@@ -68,7 +68,7 @@ def main():
                     
                     if image is not None:
                         # 处理图像，检测网球
-                        processed_frame, centers, mask = detector.process(image)
+                        processed_frame,contours ,centers, mask = detector.process(image)
                         
                         # 当前控制命令
                         current_command = "unknown"
@@ -129,7 +129,7 @@ def main():
                                 main.area_history = []
                                 
                             if len(centers) == 1:
-                                contour_area = cv2.contourArea(detector.contours[0]) 
+                                contour_area = cv2.contourArea(contours[0]) 
                                 current_area = contour_area
                                 target_center = centers[0]
                                 
