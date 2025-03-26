@@ -68,7 +68,7 @@ def main():
                     
                     if image is not None:
                         # 处理图像，检测网球
-                        processed_frame,contours ,centers, mask = detector.process(image)
+                        processed_frame, mask,contours, centers = detector.process(image)
                         
                         # 当前控制命令
                         current_command = "unknown"
