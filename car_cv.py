@@ -8,9 +8,9 @@ import time
 def main():
     node = Node()
     move = Move(node)
-    # 网球颜色阈值范围（HSV）- 黄绿色
-    lower_tennis = [20, 70, 80]  # 降低饱和度和亮度的最低要求
-    upper_tennis = [50, 255, 255]  # 扩大色调范围
+    # 网球颜色阈值范围（HSV）- 黄绿色，缩小检测范围以提高精度
+    lower_tennis = [25, 100, 100]  # 提高色调下限和饱和度、亮度的最低要求
+    upper_tennis = [45, 255, 255]  # 降低色调上限，保持饱和度和亮度范围
     # 初始化检测器
     detector = ColorDetector(lower_tennis, upper_tennis, min_area=300)
     
@@ -32,10 +32,13 @@ def main():
     
     # 历史位置记录，用于平滑处理
     position_history = []
+    max_area_history = 8
     max_history = 5
     
     # 控制参数
     command_interval = 0.2  # 命令发送间隔（秒）
+    # 网球占据画面比率
+    ratio=0.05
     
     for event in node:
         if event["type"] == "INPUT":
@@ -93,7 +96,7 @@ def main():
                                 
                                 # 执行搜索模式
                                 search_time = current_time - search_start_time
-                                if search_time > 10:  # 搜索超过 10 秒
+                                if search_time > 100:  # 搜索超过 10 秒
                                     # 切换搜索方向
                                     search_direction *= -1
                                     search_start_time = current_time
@@ -118,15 +121,47 @@ def main():
                             target_found = True
                             
                             # 获取最大面积的目标
-                            areas = []
-                            for i, center in enumerate(centers):
-                                contour_area = cv2.contourArea(detector.contours[i]) if i < len(detector.contours) else 0
-                                areas.append(contour_area)
+                            current_area = 0
+                            target_center = 0
                             
-                            max_area_idx = np.argmax(areas) if areas else 0
-                            target_center = centers[max_area_idx]
-                            target_area = areas[max_area_idx] if areas else 0
-                            
+                            # 添加面积历史记录列表（如果不存在）
+                            if not hasattr(main, 'area_history'):
+                                main.area_history = []
+                                
+                            if len(centers) == 1:
+                                contour_area = cv2.contourArea(detector.contours[0]) 
+                                current_area = contour_area
+                                target_center = centers[0]
+                                
+                                # 将当前面积添加到历史记录
+                                main.area_history.append(current_area)
+                                # 保持历史记录长度不超过5
+                                if len(main.area_history) >max_area_history :
+                                    main.area_history.pop(0)
+                                    
+                                # 计算加权平均面积（最近的面积权重更大）
+                                weights = [0.05, 0.05, 0.1, 0.1, 0.15, 0.15, 0.2, 0.2]  # 权重和为1
+                                # 增加历史记录最大长度
+                                
+                                # 保持历史记录长度不超过最大值
+                                if len(main.area_history) > max_area_history:
+                                    main.area_history.pop(0)
+                                if len(main.area_history) > 0:
+                                    # 根据实际历史长度裁剪权重
+                                    actual_weights = weights[-len(main.area_history):]
+                                    # 重新归一化权重
+                                    actual_weights = [w/sum(actual_weights) for w in actual_weights]
+                                    # 计算加权平均
+                                    target_area = sum(a*w for a, w in zip(main.area_history, actual_weights))
+                                else:
+                                    target_area = current_area
+                            else:
+                                # 如果没有检测到目标，使用历史数据的衰减值
+                                if hasattr(main, 'area_history') and len(main.area_history) > 0:
+                                    target_area = main.area_history[-1] * 0.8  # 使用最后一次记录的80%
+                                else:
+                                    target_area = 0
+                                    
                             # 更新最后有效位置
                             last_valid_position = target_center
                             
@@ -152,7 +187,8 @@ def main():
                             if can_send_command:
                                 print("目标比率",area_ratio)
                                 # 根据面积比例判断是否需要停车
-                                if area_ratio > 0.25:  # 目标很近
+                                if area_ratio > ratio:  # 目标很近
+                                    move.stop()
                                     if last_command != "stop":
                                         move.stop()
                                         last_command = "stop"

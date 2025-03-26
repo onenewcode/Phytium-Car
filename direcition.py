@@ -40,7 +40,7 @@ class ColorDetector:
             None
         """
         # 预处理 - 高斯模糊减少噪声
-        blurred_img = cv2.GaussianBlur(frame, (11, 11), 0)
+        blurred_img = cv2.GaussianBlur(frame, (5, 5), 0)
         
         # 中值滤波进一步减少噪声
         median_blur = cv2.medianBlur(blurred_img, 5)
@@ -63,10 +63,10 @@ class ColorDetector:
         
         # 如果有多个轮廓，只选择面积最大的一个（假设是网球）
         if contours:
-            self.contours=contours
+            
             # 按面积排序轮廓
             contours = sorted(contours, key=cv2.contourArea, reverse=True)
-            
+            self.contours=contours
             # 只处理面积最大的轮廓
             cnt = contours[0]
             area = cv2.contourArea(cnt)
