@@ -1,11 +1,59 @@
 import smbus
 import time
 import traitlets
+import serial
+import struct
+import threading
+
+# 定义电机驱动基类
+class MotorBase:
+    def __init__(self):
+        pass
+    
+    def Stop(self):
+        pass
+    
+    def Advance(self):
+        pass
+    
+    def Back(self):
+        pass
+    
+    def Move_Left(self):
+        pass
+    
+    def Move_Right(self):
+        pass
+    
+    def Trun_Left(self):
+        pass
+    
+    def Trun_Right(self):
+        pass
+    
+    def Advance_Left(self):
+        pass
+    
+    def Advance_Right(self):
+        pass
+    
+    def Back_Left(self):
+        pass
+    
+    def Back_Right(self):
+        pass
+    
+    def Rotate_Left(self):
+        pass
+    
+    def Rotate_Right(self):
+        pass
 
 
-# 定义电机驱动类
-class _motor(traitlets.HasTraits):
+# 定义 PCA9685 电机驱动类
+class PCA9685Motor(MotorBase, traitlets.HasTraits):
     def __init__(self, d1, d2, d3, d4):
+        super().__init__()
         # 设置 PCA9685 I2C 地址
         self.PCA9685_ADDRESS = 0x60
 
@@ -24,66 +72,34 @@ class _motor(traitlets.HasTraits):
         self.release_angle2 = 87
 
         self.traffic_light_release()
-        # Car_run = traitlets.Integer(default_value=0) 主要用于定义一个可观察的整数属性，
-        # 它不仅能够存储和表示关于“车运行”状态的信息，还能够在属性值发生变化时，
-        # 根据需要触发相应的处理逻辑或更新其他部分的状态
+
 
     Car_run = traitlets.Integer(default_value=0)
 
     # 绑定 Car_run 属性的观察者函数
     @traitlets.validate("Car_run")
     def _Car_run_Task(self, proposal):
-        if proposal["value"] == 0:  # 停止
-            self.Stop()
-            return proposal["value"]
-
-        elif proposal["value"] == 1:  # 前进
-            self.Advance()
-            return proposal["value"]
-
-        elif proposal["value"] == 2:  # 后退
-            self.Back()
-            return proposal["value"]
-
-        elif proposal["value"] == 3:  # 平移向左
-            self.Move_Left()
-            return proposal["value"]
-
-        elif proposal["value"] == 4:  # 平移向右
-            self.Move_Right()
-            return proposal["value"]
-
-        elif proposal["value"] == 5:  # 左转
-            self.Trun_Left()
-            return proposal["value"]
-
-        elif proposal["value"] == 6:  # 右转
-            self.Trun_Right()
-            return proposal["value"]
-
-        elif proposal["value"] == 7:  # 前左
-            self.Advance_Left()
-            return proposal["value"]
-
-        elif proposal["value"] == 8:  # 前右
-            self.Advance_Right()
-            return proposal["value"]
-
-        elif proposal["value"] == 9:  # 后左
-            self.Back_Left()
-            return proposal["value"]
-
-        elif proposal["value"] == 10:  # 后右
-            self.Back_Right()
-            return proposal["value"]
-
-        elif proposal["value"] == 11:  # 左旋转
-            self.Rotate_Left()
-            return proposal["value"]
-
-        elif proposal["value"] == 12:  # 右旋转
-            self.Rotate_Right()
-            return proposal["value"]
+        actions = {
+            0: self.Stop,
+            1: self.Advance,
+            2: self.Back,
+            3: self.Move_Left,
+            4: self.Move_Right,
+            5: self.Trun_Left,
+            6: self.Trun_Right,
+            7: self.Advance_Left,
+            8: self.Advance_Right,
+            9: self.Back_Left,
+            10: self.Back_Right,
+            11: self.Rotate_Left,
+            12: self.Rotate_Right,
+        }
+        
+        value = proposal["value"]
+        if value in actions:
+            actions[value]()
+        
+        return value
 
     def Stop(self):  # 停止
         self.Status_control(0, 0, 0, 0)
@@ -126,7 +142,7 @@ class _motor(traitlets.HasTraits):
 
     def LX_90D(self, t_ms):  # 左旋转 90 度
         self.Rotate_Left()
-        time.sleep(time / 1000.0)
+        time.sleep(t_ms / 1000.0)
         self.Stop()
 
     def RX_90D(self, t_ms):  # 右旋转 90 度
@@ -169,375 +185,44 @@ class _motor(traitlets.HasTraits):
         Duty_channel3 = max(0, min(Duty_channel3, 4095))  # 限制 off_time 在 0-4095 之间
         Duty_channel4 = max(0, min(Duty_channel4, 4095))  # 限制 off_time 在 0-4095 之间
 
-        self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 0, 0 & 0xFF)
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 0 + 1, 0 >> 8
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 0 + 2, Duty_channel1 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 0 + 3, Duty_channel1 >> 8
-        )
+        # 简化后的 PWM 设置函数
+        def set_channel_pwm(channel, duty):
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8)
 
-        self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 5, 0 & 0xFF)
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 5 + 1, 0 >> 8
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 5 + 2, Duty_channel2 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 5 + 3, Duty_channel2 >> 8
-        )
-
-        self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 6, 0 & 0xFF)
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 6 + 1, 0 >> 8
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 6 + 2, Duty_channel3 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 6 + 3, Duty_channel3 >> 8
-        )
-
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 11, 0 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 11 + 1, 0 >> 8
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 11 + 2, Duty_channel4 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 11 + 3, Duty_channel4 >> 8
-        )
+        set_channel_pwm(0, Duty_channel1)
+        set_channel_pwm(5, Duty_channel2)
+        set_channel_pwm(6, Duty_channel3)
+        set_channel_pwm(11, Duty_channel4)
 
     def Status_control(self, m4, m3, m2, m1):
-
-        if m1 == -1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 3, 4095 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 3, 0 >> 8
-            )
-
-        elif m1 == 0:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 3, 0 >> 8
-            )
-
-        elif m1 == 1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 1 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 2 + 3, 4095 >> 8
-            )
-
-        if m2 == -1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 3, 4095 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 3, 0 >> 8
-            )
-        elif m2 == 0:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 3, 0 >> 8
-            )
-
-        elif m2 == 1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 3 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 4 + 3, 4095 >> 8
-            )
-
-        if m3 == -1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 3, 4095 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 3, 0 >> 8
-            )
-        elif m3 == 0:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 3, 0 >> 8
-            )
-
-        elif m3 == 1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 7 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 8 + 3, 4095 >> 8
-            )
-
-        if m4 == -1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 3, 4095 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 3, 0 >> 8
-            )
-
-        elif m4 == 0:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 3, 0 >> 8
-            )
-
-        elif m4 == 1:
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 2, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 9 + 3, 0 >> 8
-            )
-
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10, 0 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 1, 0 >> 8
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 2, 4095 & 0xFF
-            )
-            self.bus.write_byte_data(
-                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * 10 + 3, 4095 >> 8
-            )
+        # 简化后的电机控制函数
+        def set_motor_pwm(channel_pair, direction):
+            channel1, channel2 = channel_pair
+            
+            if direction == -1:  # 反向
+                set_channel_pwm(channel1, 4095)
+                set_channel_pwm(channel2, 0)
+            elif direction == 0:  # 停止
+                set_channel_pwm(channel1, 0)
+                set_channel_pwm(channel2, 0)
+            elif direction == 1:  # 正向
+                set_channel_pwm(channel1, 0)
+                set_channel_pwm(channel2, 4095)
+        
+        def set_channel_pwm(channel, duty):
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8)
+        
+        # 控制四个电机
+        set_motor_pwm((1, 2), m1)
+        set_motor_pwm((3, 4), m2)
+        set_motor_pwm((7, 8), m3)
+        set_motor_pwm((9, 10), m4)
 
     def set_servo_angle(self, angle):
         min_pulse = 150
@@ -545,25 +230,19 @@ class _motor(traitlets.HasTraits):
         angle = max(0, min(180, angle))  # 限制角度在 0 到 180 度之间
         pulse_width = int((angle / 180.0) * (max_pulse - min_pulse) + min_pulse)
         duty_cycle = (pulse_width / 20000) * 4096  # 将脉冲宽度转换为占空比
-        print(duty_cycle)
         return int(duty_cycle)
 
     def set_servo(self, channel, angle1):
         # 设置 PWM 通道的占空比
         Duty_channel1 = self.set_servo_angle(angle1)
 
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, Duty_channel1 & 0xFF
-        )
-        self.bus.write_byte_data(
-            self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, Duty_channel1 >> 8
-        )
+        def set_channel_pwm(channel, on_value, off_value):
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, on_value & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, on_value >> 8)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, off_value & 0xFF)
+            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, off_value >> 8)
+        
+        set_channel_pwm(channel, 0, Duty_channel1)
 
     def release(self):
         self.bus.write_byte_data(self.PCA9685_ADDRESS, self.MODE1, 0x00)
@@ -590,19 +269,204 @@ class _motor(traitlets.HasTraits):
         self.set_pwm(L, R, L, R)
 
 
+# 定义 Modbus 电机驱动类
+class ModbusMotor(MotorBase, traitlets.HasTraits):
+    def __init__(self, port):
+        super().__init__()
+        self.port = port
+        self.running = False
+        self.direction = None
+        self.thread = None
+        self.lock = threading.Lock()
+        
+    Car_run = traitlets.Integer(default_value=0)
+    
+    # 绑定 Car_run 属性的观察者函数
+    @traitlets.validate("Car_run")
+    def _Car_run_Task(self, proposal):
+        actions = {
+            0: self.Stop,
+            1: self.Advance,
+            2: self.Back,
+            3: self.Move_Left,
+            4: self.Move_Right,
+            5: self.Trun_Left,
+            6: self.Trun_Right,
+            7: self.Advance_Left,
+            8: self.Advance_Right,
+            9: self.Back_Left,
+            10: self.Back_Right,
+            11: self.Rotate_Left,
+            12: self.Rotate_Right,
+        }
+        
+        value = proposal["value"]
+        if value in actions:
+            actions[value]()
+        
+        return value
+
+    def send_modbus_command(self, command):
+        data_without_crc = command[:-5]
+        crc = calculate_crc(bytes.fromhex(data_without_crc))
+        crc_bytes = struct.pack('<H', crc)
+        command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+
+        try:
+            with serial.Serial(self.port, baudrate=57600, timeout=1) as ser:
+                request = bytes.fromhex(command_with_crc)
+                ser.write(request)
+        except (serial.SerialException, OSError) as e:
+            print(f"无法打开串口 {self.port}: {e}")
+    
+    def enable_motor(self):
+        self.send_modbus_command(get_modbus_command("enable"))
+    
+    def disable_motor(self):
+        self.send_modbus_command(get_modbus_command("disable"))
+    
+    def Stop(self):
+        self.send_modbus_command(get_modbus_command("stop"))
+    
+    def Advance(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("advance"))
+    
+    def Back(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("back"))
+    
+    def Move_Left(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("move_left"))
+    
+    def Move_Right(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("move_right"))
+    
+    def Trun_Left(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("turn_left"))
+    
+    def Trun_Right(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("turn_right"))
+    
+    def Advance_Left(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("advance_left"))
+    
+    def Advance_Right(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("advance_right"))
+    
+    def Back_Left(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("back_left"))
+    
+    def Back_Right(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("back_right"))
+    
+    def Rotate_Left(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("rotate_left"))
+    
+    def Rotate_Right(self):
+        self.enable_motor()
+        self.send_modbus_command(get_modbus_command("rotate_right"))
+    # 获取 Modbus 命令映射
+    def get_modbus_command(action):
+        commands = {
+            "enable": "05 44 21 00 31 00 00 01 00 01 75 34",
+            "disable": "05 44 21 00 31 00 00 00 00 00 E5 34",
+            "stop": "05 44 21 00 31 00 00 00 00 00 E5 34",
+            "advance": "05 44 21 00 31 00 00 01 00 01 75 34",
+            "back": "05 44 21 00 31 00 00 02 00 01 75 34",
+            "move_left": "05 44 21 00 31 00 00 03 00 01 75 34",
+            "move_right": "05 44 21 00 31 00 00 04 00 01 75 34",
+            "turn_left": "05 44 21 00 31 00 00 05 00 01 75 34",
+            "turn_right": "05 44 21 00 31 00 00 06 00 01 75 34",
+            "advance_left": "05 44 21 00 31 00 00 07 00 01 75 34",
+            "advance_right": "05 44 21 00 31 00 00 08 00 01 75 34",
+            "back_left": "05 44 21 00 31 00 00 09 00 01 75 34",
+            "back_right": "05 44 21 00 31 00 00 0A 00 01 75 34",
+            "rotate_left": "05 44 21 00 31 00 00 0B 00 01 75 34",
+            "rotate_right": "05 44 21 00 31 00 00 0C 00 01 75 34",
+        }
+        return commands.get(action, "")
+
+
+# 统一的电机控制类，可以选择使用哪种驱动方式
+class Motor:
+    def __init__(self, driver_type="pca9685", **kwargs):
+        """
+        初始化电机控制器
+        
+        参数:
+            driver_type: 驱动类型，可选 "pca9685" 或 "modbus"
+            **kwargs: 根据驱动类型传递不同的参数
+                对于 pca9685: d1, d2, d3, d4
+                对于 modbus: port
+        """
+        if driver_type == "pca9685":
+            d1 = kwargs.get("d1", 1500)
+            d2 = kwargs.get("d2", 1500)
+            d3 = kwargs.get("d3", 1500)
+            d4 = kwargs.get("d4", 1500)
+            self.driver = PCA9685Motor(d1, d2, d3, d4)
+        elif driver_type == "modbus":
+            port = kwargs.get("port", "COM1")
+            self.driver = ModbusMotor(port)
+        else:
+            raise ValueError(f"不支持的驱动类型：{driver_type}")
+        
+        self.driver_type = driver_type
+    
+    def __getattr__(self, name):
+        """转发方法调用到具体的驱动实现"""
+        return getattr(self.driver, name)
+    # 计算 CRC 函数
+    def calculate_crc(data):
+        crc = 0xFFFF
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 0x0001:
+                    crc = (crc >> 1) ^ 0xA001
+                else:
+                    crc = crc >> 1
+        return crc
+
+
+
+# 兼容原有代码的别名
+_motor = Motor
+
+
 if __name__ == "__main__":
     try:
-        Control_Motor = _motor(1500, 1500, 1500, 1500)
-        print("start")
-        while True:
-            Control_Motor.Car_run =1
-            time.sleep(1)
-            Control_Motor.Car_run = 0
-            time.sleep(0.3)
-            break
-
+        # 使用 PCA9685 驱动
+        Control_Motor = Motor(driver_type="pca9685", d1=1500, d2=1500, d3=1500, d4=1500)
+        print("使用 PCA9685 驱动启动")
+        Control_Motor.Car_run = 1
+        time.sleep(1)
+        Control_Motor.Car_run = 0
+        time.sleep(0.3)
+        
+        # 使用 Modbus 驱动
+        # Control_Motor = Motor(driver_type="modbus", port="COM1")
+        # print("使用 Modbus 驱动启动")
+        # Control_Motor.Car_run = 1  # 使用 Car_run 属性控制
+        # time.sleep(1)
+        # Control_Motor.Car_run = 0
+        # time.sleep(0.3)
+        
     except KeyboardInterrupt:
-        # 使用 Ctrl+C 退出循环时，关闭 PCA9685
-        Control_Motor.bus.write_byte_data(
-            Control_Motor.PCA9685_ADDRESS, Control_Motor.MODE1, 0x00
-        )
+        # 使用 Ctrl+C 退出循环时，关闭驱动
+        if Control_Motor.driver_type == "pca9685":
+            Control_Motor.driver.bus.write_byte_data(
+                Control_Motor.driver.PCA9685_ADDRESS, Control_Motor.driver.MODE1, 0x00
+            )
+        else:
+            Control_Motor.driver.disable_motor()
