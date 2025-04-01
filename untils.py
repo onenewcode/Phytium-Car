@@ -1,5 +1,5 @@
 
-def process_image(data, metadata):
+def translate_image(data, metadata):
     """处理图像数据，支持不同编码格式"""
     # 转换为 NumPy 数组
     np_array = data.to_numpy()

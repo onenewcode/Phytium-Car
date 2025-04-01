@@ -42,10 +42,10 @@ class Arm:
         r = 0   #交融半径 (m)。用于指定路径的平滑效果
         self.lebai.movel(pose,a,v,t,r)
     def movej(self,pose):
-        a = 0.5 #关节加速度 (rad/s2)
-        v = 0.2 #关节速度 (rad/s)
+        a = 1 #关节加速度 (rad/s2)
+        v = 0.3 #关节速度 (rad/s)
         t = 0   #运动时间 (s)。当 t > 0 时，参数速度 v 和加速度 a 无效
-        r = 0   #交融半径 (m)。用于指定路径的平滑效果
+        r = 0.3   #交融半径 (m)。用于指定路径的平滑效果
         self.lebai.movej(pose,a,v,t,r) 
     #  获取机械臂的运动状态
     def state(self):

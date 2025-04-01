@@ -278,7 +278,7 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         self.direction = None
         self.thread = None
         self.lock = threading.Lock()
-        
+
     Car_run = traitlets.Integer(default_value=0)
     
     # 绑定 Car_run 属性的观察者函数
@@ -308,7 +308,7 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
 
     def send_modbus_command(self, command):
         data_without_crc = command[:-5]
-        crc = calculate_crc(bytes.fromhex(data_without_crc))
+        crc = self.calculate_crc(bytes.fromhex(data_without_crc))
         crc_bytes = struct.pack('<H', crc)
         command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
 
@@ -317,66 +317,66 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
                 request = bytes.fromhex(command_with_crc)
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
-            print(f"无法打开串口 {self.port}: {e}")
+            print(f"Unable to open serial port {self.port}: {e}")
     
     def enable_motor(self):
-        self.send_modbus_command(get_modbus_command("enable"))
+        self.send_modbus_command(self.get_modbus_command("enable"))
     
     def disable_motor(self):
-        self.send_modbus_command(get_modbus_command("disable"))
+        self.send_modbus_command(self.get_modbus_command("disable"))
     
     def Stop(self):
-        self.send_modbus_command(get_modbus_command("stop"))
+        self.send_modbus_command(self.get_modbus_command("stop"))
     
     def Advance(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("advance"))
+        self.send_modbus_command(self.get_modbus_command("advance"))
     
     def Back(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("back"))
+        self.send_modbus_command(self.get_modbus_command("back"))
     
     def Move_Left(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("move_left"))
+        self.send_modbus_command(self.get_modbus_command("move_left"))
     
     def Move_Right(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("move_right"))
+        self.send_modbus_command(self.get_modbus_command("move_right"))
     
     def Trun_Left(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("turn_left"))
+        self.send_modbus_command(self.get_modbus_command("turn_left"))
     
     def Trun_Right(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("turn_right"))
+        self.send_modbus_command(self.get_modbus_command("turn_right"))
     
     def Advance_Left(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("advance_left"))
+        self.send_modbus_command(self.get_modbus_command("advance_left"))
     
     def Advance_Right(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("advance_right"))
+        self.send_modbus_command(self.get_modbus_command("advance_right"))
     
     def Back_Left(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("back_left"))
+        self.send_modbus_command(self.get_modbus_command("back_left"))
     
     def Back_Right(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("back_right"))
+        self.send_modbus_command(self.get_modbus_command("back_right"))
     
     def Rotate_Left(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("rotate_left"))
+        self.send_modbus_command(self.get_modbus_command("rotate_left"))
     
     def Rotate_Right(self):
         self.enable_motor()
-        self.send_modbus_command(get_modbus_command("rotate_right"))
+        self.send_modbus_command(self.get_modbus_command("rotate_right"))
     # 获取 Modbus 命令映射
-    def get_modbus_command(action):
+    def get_modbus_command(self,action):
         commands = {
             "enable": "05 44 21 00 31 00 00 01 00 01 75 34",
             "disable": "05 44 21 00 31 00 00 00 00 00 E5 34",
@@ -443,24 +443,18 @@ class Motor:
 # 兼容原有代码的别名
 _motor = Motor
 
-
 if __name__ == "__main__":
     try:
-        # 使用 PCA9685 驱动
-        Control_Motor = Motor(driver_type="pca9685", d1=1500, d2=1500, d3=1500, d4=1500)
-        print("使用 PCA9685 驱动启动")
-        Control_Motor.Car_run = 1
-        time.sleep(1)
+        # 使用 Modbus 驱动
+        Control_Motor = Motor(driver_type="modbus", port="/dev/ttyUSB0")
+        print("使用 Modbus 驱动启动")
+        Control_Motor.Car_run = 1  # 使用 Car_run 属性控制
+        time.sleep(3)
         Control_Motor.Car_run = 0
         time.sleep(0.3)
         
-        # 使用 Modbus 驱动
-        # Control_Motor = Motor(driver_type="modbus", port="COM1")
-        # print("使用 Modbus 驱动启动")
-        # Control_Motor.Car_run = 1  # 使用 Car_run 属性控制
-        # time.sleep(1)
-        # Control_Motor.Car_run = 0
-        # time.sleep(0.3)
+        # 调用 enable_motor 方法
+        Control_Motor.enable_motor()
         
     except KeyboardInterrupt:
         # 使用 Ctrl+C 退出循环时，关闭驱动
