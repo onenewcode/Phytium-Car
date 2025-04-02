@@ -1,4 +1,4 @@
-/out
+out/
 __pycache__/
 model/*.pt
 runs/

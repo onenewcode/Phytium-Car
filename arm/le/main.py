@@ -1,4 +1,6 @@
 import lebai_sdk
+from dora import Node
+import pyarrow as pa
 # lebai:teach_mode()
 # lebai:end_teach_mode()
 class Arm:
@@ -67,7 +69,7 @@ class Arm:
         self.starting_point()
         self.wait_move()
         
-def main():
+def test():
     # print(lebai_sdk.discover_devices(2))
     lebai_sdk.init()
     arm=Arm("192.168.3.220")
@@ -85,6 +87,21 @@ def main():
     arm.grasp()
     # arm.starting_point()
     arm.lebai.wait_move()
-    
-  
-main()
+
+def main():
+    node = Node()
+    lebai_sdk.init()
+    arm=Arm("192.168.3.220")
+    for event in node:
+            if event["type"] == "INPUT":
+                event_id = event["id"]
+                if event_id == "task":
+                    arm.task()
+                if event_id == "tick":
+                    node.send_output("state",pa.Array[arm.state()])
+                    
+            
+        
+if __name__ == "__main__":
+    main()
+

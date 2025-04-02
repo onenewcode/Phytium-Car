@@ -2,6 +2,15 @@ import cv2
 import numpy as np
 from dora import Node
 import pyarrow as pa
+import sys
+import os
+
+# 添加项目根目录到 Python 路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 现在可以正常导入
+from untils.untils import Calculate
+
 
 def process_image(data, metadata):
     """处理图像数据，支持不同编码格式"""
@@ -90,63 +99,66 @@ class ColorDetector:
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1) 
         mask  = cv2.GaussianBlur(mask, (5, 5), 0)
-        cv2.imshow('mask', mask)
         
         # 查找轮廓
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        centers = []
+        data = []
         processed_frame = frame.copy()
-        ratio=0
-        # 如果有多个轮廓，只选择面积最大的一个（假设是网球）
-        if contours:
-            # 按面积排序轮廓
-            contours = sorted(contours, key=cv2.contourArea, reverse=True)
-            # 只处理面积最大的轮廓
-            cnt = contours[0]
+        ratio = 0
+        
+        # 轮询处理每个轮廓
+        for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
-            # 计算矩形的面积
-            area = w*h
-            if area > self.min_area:
-                # 计算中心坐标
+            area = cv2.contourArea(cnt)
+
+            # 计算轮廓的圆形度
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter == 0:
+                continue
+            circularity = 4 * np.pi * area / (perimeter * perimeter)
+
+            # 只处理面积小于某个值且轮廓接近圆形的轮廓
+            if area < self.min_area and circularity > 0.8:  # 圆形度阈值可以调整
                 center_x = x + w // 2
                 center_y = y + h // 2
-                centers.append((center_x, center_y))
                 
-                # 绘制矩形框和中心点
-                cv2.rectangle(processed_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.circle(processed_frame, (center_x, center_y), 5, (0, 0, 255), -1)
-                
-                # 在图像上显示中心点坐标
-                cv2.putText(processed_frame, f"网球：({center_x}, {center_y})", 
-                           (center_x - 60, center_y - 20), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                
-                # 显示面积信息
-                cv2.putText(processed_frame, f"面积：{int(area)}", 
-                           (center_x - 60, center_y + 20), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-                # 显示长宽比信息
-                ratio = self.ratio(h,w)
-                print(centers)
-        return processed_frame, mask,contours, centers,ratio
+                cv2.rectangle(processed_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.circle(processed_frame, (center_x, center_y), 5, (0, 0, 255), -1)
+
+                cv2.putText(processed_frame, f"网球：({center_x}, {center_y})",
+                            (center_x - 60, center_y - 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                cv2.putText(processed_frame, f"面积：{int(area)}",
+                            (center_x - 60, center_y + 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                data.append(Calculate(center_x,center_y,self.ratio(h, w)))
+        return processed_frame, mask, data
 # 接受传入的图像，发送处理后的图像，轮廓，中心点，掩膜
 def main():
     node = Node()
     dector=ColorDetector([20, 70, 80], [50, 255, 255], min_area=300)
+    pa_type = pa.struct([
+    pa.field("field1", pa.int64()),  # 第一个元素是字符串
+    pa.field("field2", pa.int64())   # 第二个元素是整数
+    ])
     for event in node:
         if event["type"] == "INPUT":
             event_id = event["id"]
             # 处理普通图像或 mask 图像
             if event_id == "image":
                 image = process_image(event["value"], event["metadata"])
+                
                 if image is not None:
                     image=cv2.flip(image, 0)
-                    processed_frame, mask,contours, centers,_=dector.process(image)
-                    node.send_output("image",event["value"],event["metadata"])
+                    processed_frame, mask, data=dector.process(image)
+                    node.send_output("image",pa.array(processed_frame.ravel()),event["metadata"])
                     # node.send_output("mask", pa.array(mask.ravel()),event["metadata"])
-                    # node.send_output("contours", contours)
+                    node.send_output("data",  Calculate.to_pa_array(data))
+            
+                    
 
 def test():
     dector=ColorDetector([30, 70, 80], [50, 255, 255], min_area=300)
@@ -184,4 +196,4 @@ def test():
 
 # 使用示例
 if __name__ == "__main__":
-    test()
+    main()

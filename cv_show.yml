@@ -6,18 +6,9 @@ nodes:
       tick: dora/timer/millis/50
     outputs: 
       - image
-  - id: color_detector
-    path: color_detector.py
-    inputs:
-      image: opencv-video-capture/image
-    outputs:
-      - image
-      - mask
-      - contours
   - id: show
     path: show/main.py
     _unstable_deploy:
       machine: pc
     inputs:
       image: opencv-video-capture/image
-      mask: color_detector/mask

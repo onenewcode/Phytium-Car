@@ -278,12 +278,14 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         self.direction = None
         self.thread = None
         self.lock = threading.Lock()
+        self.enable_motor()
 
     Car_run = traitlets.Integer(default_value=0)
     
     # 绑定 Car_run 属性的观察者函数
-    @traitlets.validate("Car_run")
+    @traitlets.validate('Car_run')
     def _Car_run_Task(self, proposal):
+        print("Car_run_Task called with value:", proposal["value"])  # 调试打印
         actions = {
             0: self.Stop,
             1: self.Advance,
@@ -318,6 +320,17 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
             print(f"Unable to open serial port {self.port}: {e}")
+       # 计算 CRC 函数
+    def calculate_crc(self,data):
+        crc = 0xFFFF
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 0x0001:
+                    crc = (crc >> 1) ^ 0xA001
+                else:
+                    crc = crc >> 1
+        return crc
     
     def enable_motor(self):
         self.send_modbus_command(self.get_modbus_command("enable"))
@@ -329,51 +342,49 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         self.send_modbus_command(self.get_modbus_command("stop"))
     
     def Advance(self):
-        self.enable_motor()
         self.send_modbus_command(self.get_modbus_command("advance"))
     
     def Back(self):
-        self.enable_motor()
+        
         self.send_modbus_command(self.get_modbus_command("back"))
     
     def Move_Left(self):
-        self.enable_motor()
         self.send_modbus_command(self.get_modbus_command("move_left"))
     
     def Move_Right(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("move_right"))
     
     def Trun_Left(self):
-        self.enable_motor()
+ 
         self.send_modbus_command(self.get_modbus_command("turn_left"))
     
     def Trun_Right(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("turn_right"))
     
     def Advance_Left(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("advance_left"))
     
     def Advance_Right(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("advance_right"))
     
     def Back_Left(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("back_left"))
     
     def Back_Right(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("back_right"))
     
     def Rotate_Left(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("rotate_left"))
     
     def Rotate_Right(self):
-        self.enable_motor()
+
         self.send_modbus_command(self.get_modbus_command("rotate_right"))
     # 获取 Modbus 命令映射
     def get_modbus_command(self,action):
@@ -381,18 +392,10 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
             "enable": "05 44 21 00 31 00 00 01 00 01 75 34",
             "disable": "05 44 21 00 31 00 00 00 00 00 E5 34",
             "stop": "05 44 21 00 31 00 00 00 00 00 E5 34",
-            "advance": "05 44 21 00 31 00 00 01 00 01 75 34",
-            "back": "05 44 21 00 31 00 00 02 00 01 75 34",
-            "move_left": "05 44 21 00 31 00 00 03 00 01 75 34",
-            "move_right": "05 44 21 00 31 00 00 04 00 01 75 34",
-            "turn_left": "05 44 21 00 31 00 00 05 00 01 75 34",
-            "turn_right": "05 44 21 00 31 00 00 06 00 01 75 34",
-            "advance_left": "05 44 21 00 31 00 00 07 00 01 75 34",
-            "advance_right": "05 44 21 00 31 00 00 08 00 01 75 34",
-            "back_left": "05 44 21 00 31 00 00 09 00 01 75 34",
-            "back_right": "05 44 21 00 31 00 00 0A 00 01 75 34",
-            "rotate_left": "05 44 21 00 31 00 00 0B 00 01 75 34",
-            "rotate_right": "05 44 21 00 31 00 00 0C 00 01 75 34",
+            "advance": "05 44 23 18 33 18 FF 9C FF 9C 9D 38",
+            "back": "05 44 23 18 33 18 00 64 00 64 9D 38",
+            "turn_left": "05 44 23 18 33 18 00 64 FF 9C 9D 38",
+            "turn_right": "05 44 23 18 33 18 FF 9C 00 64 9D 38",
         }
         return commands.get(action, "")
 
@@ -426,35 +429,42 @@ class Motor:
     def __getattr__(self, name):
         """转发方法调用到具体的驱动实现"""
         return getattr(self.driver, name)
-    # 计算 CRC 函数
-    def calculate_crc(data):
-        crc = 0xFFFF
-        for byte in data:
-            crc ^= byte
-            for _ in range(8):
-                if crc & 0x0001:
-                    crc = (crc >> 1) ^ 0xA001
-                else:
-                    crc = crc >> 1
-        return crc
+ 
 
 
 
-# 兼容原有代码的别名
-_motor = Motor
 
 if __name__ == "__main__":
     try:
         # 使用 Modbus 驱动
-        Control_Motor = Motor(driver_type="modbus", port="/dev/ttyUSB0")
+        car_controller = Motor(driver_type="modbus", port="/dev/ttyUSB0")
         print("使用 Modbus 驱动启动")
-        Control_Motor.Car_run = 1  # 使用 Car_run 属性控制
-        time.sleep(3)
-        Control_Motor.Car_run = 0
-        time.sleep(0.3)
+      
+        # 启用电机
+ 
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
+        time.sleep(0.1)  # 持续运行 1 秒
+        car_controller.driver.Car_run =1
         
         # 调用 enable_motor 方法
-        Control_Motor.enable_motor()
+        
         
     except KeyboardInterrupt:
         # 使用 Ctrl+C 退出循环时，关闭驱动
