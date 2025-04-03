@@ -35,7 +35,7 @@ def process_image(data, metadata):
     
     return image
 class ColorDetector:
-    def __init__(self, lower_hsv, upper_hsv, ratio_value=0.0322265625,min_area=500):
+    def __init__(self, lower_hsv, upper_hsv, ratio_value=0.0322265625,min_area=300,max_area=10000):
         """
         颜色识别器构造函数
         :param lower_hsv: HSV 颜色空间下限阈值 (list/tuple)
@@ -45,6 +45,7 @@ class ColorDetector:
         self.lower = np.array(lower_hsv)
         self.upper = np.array(upper_hsv)
         self.min_area = min_area
+        self.max_area = max_area
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         # 锁眼位置
         self.recet_pos=(210, 354, 100, 100)
@@ -96,29 +97,30 @@ class ColorDetector:
         mask = cv2.inRange(hsv, self.lower, self.upper)
         # 形态学操作（消除噪声）
         # 定义结构元素（核），例如 5x5 的矩形
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # 开运算，先腐蚀再膨胀，用于去除小的噪点
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1) 
-        mask  = cv2.GaussianBlur(mask, (5, 5), 0)
-        
+        # 闭运算，先膨胀再腐蚀，用于填充孔洞
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=3) 
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2) 
+        mask  = cv2.GaussianBlur(mask, (11, 11), 0)
+     
         # 查找轮廓
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         data = []
         processed_frame = frame.copy()
-        ratio = 0
-        
         # 轮询处理每个轮廓
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             area = cv2.contourArea(cnt)
-
             # 计算轮廓的圆形度
             perimeter = cv2.arcLength(cnt, True)
             if perimeter == 0:
                 continue
             circularity = 4 * np.pi * area / (perimeter * perimeter)
-
+            
             # 只处理面积小于某个值且轮廓接近圆形的轮廓
-            if area < self.min_area and circularity > 0.8:  # 圆形度阈值可以调整
+            if area > self.min_area and area<self.max_area and circularity > 0.8:  # 圆形度阈值可以调整
                 center_x = x + w // 2
                 center_y = y + h // 2
                 
@@ -126,11 +128,11 @@ class ColorDetector:
                 cv2.rectangle(processed_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 cv2.circle(processed_frame, (center_x, center_y), 5, (0, 0, 255), -1)
 
-                cv2.putText(processed_frame, f"网球：({center_x}, {center_y})",
+                cv2.putText(processed_frame, f"Ball:({center_x}, {center_y})",
                             (center_x - 60, center_y - 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-                cv2.putText(processed_frame, f"面积：{int(area)}",
+                cv2.putText(processed_frame, f"Square :{int(area)}",
                             (center_x - 60, center_y + 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
@@ -139,24 +141,22 @@ class ColorDetector:
 # 接受传入的图像，发送处理后的图像，轮廓，中心点，掩膜
 def main():
     node = Node()
-    dector=ColorDetector([20, 70, 80], [50, 255, 255], min_area=300)
-    pa_type = pa.struct([
-    pa.field("field1", pa.int64()),  # 第一个元素是字符串
-    pa.field("field2", pa.int64())   # 第二个元素是整数
-    ])
+    dector=ColorDetector([30, 70, 80], [50, 255, 255], min_area=300)
     for event in node:
         if event["type"] == "INPUT":
             event_id = event["id"]
             # 处理普通图像或 mask 图像
             if event_id == "image":
                 image = process_image(event["value"], event["metadata"])
-                
                 if image is not None:
                     image=cv2.flip(image, 0)
                     processed_frame, mask, data=dector.process(image)
                     node.send_output("image",pa.array(processed_frame.ravel()),event["metadata"])
-                    # node.send_output("mask", pa.array(mask.ravel()),event["metadata"])
+                    event["metadata"]["encoding"]="uint8"
+                    node.send_output("mask", pa.array(mask.ravel()),event["metadata"])
                     node.send_output("data",  Calculate.to_pa_array(data))
+        # elif  event["type"] == "STOP":
+        #     cv2.VideoCapture.release()
             
                     
 
@@ -174,7 +174,7 @@ def test():
         # 逐帧捕获
         ret, frame = cap.read()
         image=cv2.flip(frame, 0)
-        processed_frame, mask,contours, centers,_=dector.process(image)
+        processed_frame, mask, data=dector.process(image)
         # 如果正确读取帧，ret 为 True
         if not ret:
             print("无法读取摄像头画面")
@@ -183,7 +183,7 @@ def test():
         # 显示当前帧
         cv2.imshow('Camera Feed', frame)
         cv2.imshow('processed_frame', processed_frame)
-        # cv2.imshow('mask', mask)
+        cv2.imshow('mask', mask)
 
         # 按下键盘上的 'q' 键退出循环
         if cv2.waitKey(1) & 0xFF == ord('q'):

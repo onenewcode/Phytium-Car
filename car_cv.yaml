@@ -4,39 +4,44 @@ nodes:
     path: opencv-video-capture
     inputs: 
       tick: dora/timer/millis/50
+    env:
+      PATH: 1 # optional, default is 0
     outputs: 
       - image
   - id: color
     path: mycv/color.py
-    # _unstable_deploy:
-    #   machine: pc
+    _unstable_deploy:
+      machine: pc
     inputs: 
       image: opencv-video-capture/image
     outputs: 
       - image
       - data
-  - id: car_cv
-    path: car_cv.py
-    inputs:
-      data: color/data
-      state: arm/state
-    outputs:
-      - task
+      - mask
+  # - id: car_cv
+  #   path: car_cv.py
+  #   inputs:
+  #     data: color/data
+  #     state: arm/state
+  #   outputs:
+  #     - task
+  #     - move
   # - id: motor
   #   path: motor/main.py
   #   inputs:
   #     move: car_cv/move
-  - id: arm
-    path: arm/le/main.py
-    inputs:
-      task: car_cv/move
-      tick: dora/timer/millis/50
-    outputs: 
-      - state
-  # - id: show
-  #   path: show/main.py
-  #   _unstable_deploy:
-  #     machine: pc
+  # - id: arm
+  #   path: arm/le/main.py
   #   inputs:
-  #     image: color/image
+  #     task: car_cv/task
+  #     tick: dora/timer/millis/50
+  #   outputs: 
+  #     - state
+  - id: show
+    path: show/main.py
+    _unstable_deploy:
+      machine: pc
+    inputs:
+      image: color/image
+      # mask:  color/mask
       
