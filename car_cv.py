@@ -21,17 +21,18 @@ class CarCV:
         self.search_direction = 1
         self.search_start_time = 0
         self.last_command_time = time.time()
-        self.ratio_abs=0.001
         self.target_found = False
         self.last_valid_position = None
         self.debug_mode = False
         self.command_interval = 0.1
         self.recet_pos=(210, 354, 100, 100)
-        self.center_h=248
-        self.center_w= 402
+        self.center_x=248
+        self.center_y= 402
         self.width=640
         self.height=480
         self.arm_state_Ready=True
+        self.ratio_abs=0.002
+        self.ratio_num=0.03485026041666667
     def process_image(self ,data:List[Calculate]):
 
         current_time = time.time()
@@ -40,7 +41,7 @@ class CarCV:
             if len(data) == 0:
                 self.handle_target_lost(current_time)
             else:
-                self.handle_target_found(data[0].x, data[0].ratio, current_time)
+                self.handle_target_found(data[0].x,data[0].y, data[0].ratio, current_time)
 
             
 
@@ -67,40 +68,41 @@ class CarCV:
                 self.move.turn_left()
                 self.last_command_time = current_time
 
-    def handle_target_found(self, w,ratio, current_time):
+    def handle_target_found(self, x, y, ratio, current_time):
         self.lost_count = 0
         self.target_found = True
-        
-  
-
-        # 计算当前中心点与目标中心点的水平距离
-        rel_x = (w - self.center_w) / self.width
-
-        print("目标比率", ratio)
-        if abs(ratio - self.ratio_abs) < self.ratio_abs:
+        self.last_valid_position = (x, y)
+        self.last_command_time = current_time
+        # 计算小球与画面中心的偏移
+        x_offset = x - self.center_x
+        y_offset = y - self.center_y
+        # 计算比率偏差值
+        print("Sfasd",ratio)
+        ratio_diff = abs(ratio - self.ratio_num)
+        # 打印调试信息
+        if self.debug_mode:
+            print(f"目标位置：({x}, {y}), 偏移：({x_offset}, {y_offset}), 比率：{ratio}, 比率偏差：{ratio_diff}")
+        # 当比率偏差小于 0.1 时，小车停下
+        if ratio_diff < self.ratio_abs:
             self.move.stop()
-            print("目标已接近，停止")
-        else:
-            new_command = self.determine_command(rel_x)
-            self.execute_command(new_command)
-            self.last_command_time = current_time
-
-    def determine_command(self, rel_x):
-        # 根据水平距离决定移动方向
-        if rel_x < -0.1:
-            return "turn_left"
-        elif rel_x > 0.1:
-            return "turn_right"
-        else:
-            return "advance"
-
-    def execute_command(self, command):
-        if command == "turn_left":
-            self.move.turn_left()
-        elif command == "advance":
+            return
+        # 根据目标位置控制小车移动
+        if abs(x_offset) > 50:  # 如果水平偏移较大
+            if x_offset > 0:
+                self.move.turn_left()
+            else:
+                self.move.turn_right()
+        elif y_offset > 50:  # 如果目标在下方
+            self.move.Back()
+        elif y_offset < -50:  # 如果目标在上方
             self.move.advance()
-        elif command == "turn_right":
-            self.move.turn_right()
+        else:
+            # 如果位置接近中心但比率不对，调整前后位置
+            if ratio < self.ratio_abs:
+                self.move.advance()
+            else:
+                self.move.Back()
+
 
 
   
