@@ -6,6 +6,7 @@ from pyorbbecsdk import OBSensorType, OBFormat
 from pyorbbecsdk import Pipeline, FrameSet
 from pyorbbecsdk import VideoStreamProfile
 from utils import frame_to_bgr_image
+
 # 退出键 ASCII 码
 ESC_KEY = 27
 
@@ -20,7 +21,9 @@ def main():
         profile_list = pipeline.get_stream_profile_list(OBSensorType.COLOR_SENSOR)
         try:
             # 颜色流配置获取指定的分辨率、格式、帧率
-            color_profile: VideoStreamProfile = profile_list.get_video_stream_profile(640, 0, OBFormat.RGB, 30)
+            color_profile: VideoStreamProfile = profile_list.get_video_stream_profile(
+                640, 0, OBFormat.RGB, 30
+            )
         except OBError as e:
             print(e)
             color_profile = profile_list.get_default_video_stream_profile()
@@ -46,7 +49,7 @@ def main():
                 continue
             cv2.imshow("Color Viewer", color_image)
             key = cv2.waitKey(1)
-            if key == ord('q') or key == ESC_KEY:
+            if key == ord("q") or key == ESC_KEY:
                 break
         except KeyboardInterrupt:
             break

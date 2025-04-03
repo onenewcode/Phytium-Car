@@ -1,2 +1,3 @@
 from .color import ColorDetector
-__all__ = ['ColorDetector']
+
+__all__ = ["ColorDetector"]

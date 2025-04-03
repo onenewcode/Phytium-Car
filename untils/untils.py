@@ -1,7 +1,7 @@
-
 import cv2
 import numpy as np
 import pyarrow as pa
+
 
 def translate_image(data, metadata):
     """处理图像数据，支持不同编码格式"""
@@ -28,24 +28,32 @@ def translate_image(data, metadata):
         return None
     return image
 
+
 class Calculate:
     def __init__(self, x, y, ratio):
         self.x = x
         self.y = y
         self.ratio = ratio
-    
+
     @staticmethod
     def to_pa_array(calc_list):
         """将 Calculate 对象列表转换为 pyarrow 数组"""
         data = [(c.x, c.y, c.ratio) for c in calc_list]
-        return pa.array(data, type=pa.struct([
-            pa.field('x', pa.int64()),
-            pa.field('y', pa.int64()),
-            pa.field('ratio', pa.float64())
-        ]))
-    
+        return pa.array(
+            data,
+            type=pa.struct(
+                [
+                    pa.field("x", pa.int64()),
+                    pa.field("y", pa.int64()),
+                    pa.field("ratio", pa.float64()),
+                ]
+            ),
+        )
+
     @staticmethod
     def from_pa_array(pa_array):
         """将 pyarrow 数组转换回 Calculate 对象列表"""
-        return [Calculate(item['x'].as_py(), item['y'].as_py(), item['ratio'].as_py()) 
-                for item in pa_array]
+        return [
+            Calculate(item["x"].as_py(), item["y"].as_py(), item["ratio"].as_py())
+            for item in pa_array
+        ]

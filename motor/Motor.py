@@ -5,47 +5,48 @@ import serial
 import struct
 import threading
 
+
 # 定义电机驱动基类
 class MotorBase:
     def __init__(self):
         pass
-    
+
     def Stop(self):
         pass
-    
+
     def Advance(self):
         pass
-    
+
     def Back(self):
         pass
-    
+
     def Move_Left(self):
         pass
-    
+
     def Move_Right(self):
         pass
-    
+
     def Trun_Left(self):
         pass
-    
+
     def Trun_Right(self):
         pass
-    
+
     def Advance_Left(self):
         pass
-    
+
     def Advance_Right(self):
         pass
-    
+
     def Back_Left(self):
         pass
-    
+
     def Back_Right(self):
         pass
-    
+
     def Rotate_Left(self):
         pass
-    
+
     def Rotate_Right(self):
         pass
 
@@ -73,7 +74,6 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
 
         self.traffic_light_release()
 
-
     Car_run = traitlets.Integer(default_value=0)
 
     # 绑定 Car_run 属性的观察者函数
@@ -94,11 +94,11 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
             11: self.Rotate_Left,
             12: self.Rotate_Right,
         }
-        
+
         value = proposal["value"]
         if value in actions:
             actions[value]()
-        
+
         return value
 
     def Stop(self):  # 停止
@@ -187,10 +187,18 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
 
         # 简化后的 PWM 设置函数
         def set_channel_pwm(channel, duty):
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8)
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8
+            )
 
         set_channel_pwm(0, Duty_channel1)
         set_channel_pwm(5, Duty_channel2)
@@ -201,7 +209,7 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
         # 简化后的电机控制函数
         def set_motor_pwm(channel_pair, direction):
             channel1, channel2 = channel_pair
-            
+
             if direction == -1:  # 反向
                 set_channel_pwm(channel1, 4095)
                 set_channel_pwm(channel2, 0)
@@ -211,13 +219,21 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
             elif direction == 1:  # 正向
                 set_channel_pwm(channel1, 0)
                 set_channel_pwm(channel2, 4095)
-        
+
         def set_channel_pwm(channel, duty):
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8)
-        
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, 0 & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, 0 >> 8
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, duty & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, duty >> 8
+            )
+
         # 控制四个电机
         set_motor_pwm((1, 2), m1)
         set_motor_pwm((3, 4), m2)
@@ -237,11 +253,19 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
         Duty_channel1 = self.set_servo_angle(angle1)
 
         def set_channel_pwm(channel, on_value, off_value):
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, on_value & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, on_value >> 8)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, off_value & 0xFF)
-            self.bus.write_byte_data(self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, off_value >> 8)
-        
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel, on_value & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 1, on_value >> 8
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 2, off_value & 0xFF
+            )
+            self.bus.write_byte_data(
+                self.PCA9685_ADDRESS, self.LED0_ON_L + 4 * channel + 3, off_value >> 8
+            )
+
         set_channel_pwm(channel, 0, Duty_channel1)
 
     def release(self):
@@ -281,9 +305,9 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         self.enable_motor()
 
     Car_run = traitlets.Integer(default_value=0)
-    
+
     # 绑定 Car_run 属性的观察者函数
-    @traitlets.validate('Car_run')
+    @traitlets.validate("Car_run")
     def _Car_run_Task(self, proposal):
         print("Car_run_Task called with value:", proposal["value"])  # 调试打印
         actions = {
@@ -301,17 +325,17 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
             11: self.Rotate_Left,
             12: self.Rotate_Right,
         }
-        
+
         value = proposal["value"]
         if value in actions:
             actions[value]()
-        
+
         return value
 
     def send_modbus_command(self, command):
         data_without_crc = command[:-5]
         crc = self.calculate_crc(bytes.fromhex(data_without_crc))
-        crc_bytes = struct.pack('<H', crc)
+        crc_bytes = struct.pack("<H", crc)
         command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
 
         try:
@@ -320,8 +344,9 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
             print(f"Unable to open serial port {self.port}: {e}")
-       # 计算 CRC 函数
-    def calculate_crc(self,data):
+
+    # 计算 CRC 函数
+    def calculate_crc(self, data):
         crc = 0xFFFF
         for byte in data:
             crc ^= byte
@@ -331,63 +356,64 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
                 else:
                     crc = crc >> 1
         return crc
-    
+
     def enable_motor(self):
         self.send_modbus_command(self.get_modbus_command("enable"))
-    
+
     def disable_motor(self):
         self.send_modbus_command(self.get_modbus_command("disable"))
-    
+
     def Stop(self):
         self.send_modbus_command(self.get_modbus_command("stop"))
-    
+
     def Advance(self):
         self.send_modbus_command(self.get_modbus_command("advance"))
-    
+
     def Back(self):
-        
+
         self.send_modbus_command(self.get_modbus_command("back"))
-    
+
     def Move_Left(self):
         self.send_modbus_command(self.get_modbus_command("move_left"))
-    
+
     def Move_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("move_right"))
-    
+
     def Trun_Left(self):
- 
+
         self.send_modbus_command(self.get_modbus_command("turn_left"))
-    
+
     def Trun_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("turn_right"))
-    
+
     def Advance_Left(self):
 
         self.send_modbus_command(self.get_modbus_command("advance_left"))
-    
+
     def Advance_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("advance_right"))
-    
+
     def Back_Left(self):
 
         self.send_modbus_command(self.get_modbus_command("back_left"))
-    
+
     def Back_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("back_right"))
-    
+
     def Rotate_Left(self):
 
         self.send_modbus_command(self.get_modbus_command("rotate_left"))
-    
+
     def Rotate_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("rotate_right"))
+
     # 获取 Modbus 命令映射
-    def get_modbus_command(self,action):
+    def get_modbus_command(self, action):
         commands = {
             "enable": "05 44 21 00 31 00 00 01 00 01 75 34",
             "disable": "05 44 21 00 31 00 00 00 00 00 E5 34",
@@ -405,7 +431,7 @@ class Motor:
     def __init__(self, driver_type="pca9685", **kwargs):
         """
         初始化电机控制器
-        
+
         参数:
             driver_type: 驱动类型，可选 "pca9685" 或 "modbus"
             **kwargs: 根据驱动类型传递不同的参数
@@ -423,15 +449,12 @@ class Motor:
             self.driver = ModbusMotor(port)
         else:
             raise ValueError(f"不支持的驱动类型：{driver_type}")
-        
+
         self.driver_type = driver_type
-    
+
     def __getattr__(self, name):
         """转发方法调用到具体的驱动实现"""
         return getattr(self.driver, name)
- 
-
-
 
 
 if __name__ == "__main__":
@@ -439,33 +462,32 @@ if __name__ == "__main__":
         # 使用 Modbus 驱动
         car_controller = Motor(driver_type="modbus", port="/dev/ttyUSB0")
         print("使用 Modbus 驱动启动")
-      
+
         # 启用电机
- 
-        car_controller.driver.Car_run =1
+
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
 
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
+        car_controller.driver.Car_run = 1
         time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run =1
-        
+        car_controller.driver.Car_run = 1
+
         # 调用 enable_motor 方法
-        
-        
+
     except KeyboardInterrupt:
         # 使用 Ctrl+C 退出循环时，关闭驱动
         if Control_Motor.driver_type == "pca9685":

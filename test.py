@@ -1,9 +1,10 @@
 import cv2
 
+
 def count_cameras(max_checks=10):
     """
     检测系统中可用的摄像头数量。
-    
+
     :param max_checks: 最大检查的摄像头索引数（默认为10）
     :return: 可用摄像头的数量
     """
@@ -25,4 +26,3 @@ def count_cameras(max_checks=10):
 if __name__ == "__main__":
     num_cameras = count_cameras()
     print(f"系统中检测到 {num_cameras} 个可用摄像头。")
- 

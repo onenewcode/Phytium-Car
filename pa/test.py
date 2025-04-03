@@ -2,7 +2,7 @@ import pyarrow as pa
 
 # 假设 event.key.char 是一个具体的字符，例如 'A'
 # 这里我们直接指定一个示例字符，因为在没有上下文的情况下无法直接获取 event 对象
-char_example = 'A'
+char_example = "A"
 
 # 使用 pyarrow 创建一个 array
 data = pa.array([char_example])

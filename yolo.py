@@ -4,12 +4,15 @@ import numpy as np
 import torch
 from dora import Node
 import pyarrow as pa
+
+
 class YOLODetector:
-    def __init__(self, model_path,area_ratio=0.1):
+    def __init__(self, model_path, area_ratio=0.1):
         self.model = YOLO(model_path)
         # 用于判断是否停车
-        self.area_ratio=area_ratio
-    def process(self,frame):
+        self.area_ratio = area_ratio
+
+    def process(self, frame):
         """
         检测图像中的网球，返回最大网球的中心点、面积比例和处理后的图像
 
@@ -26,7 +29,9 @@ class YOLODetector:
         img_area = img_height * img_width
 
         # 使用 YOLO 进行检测
-        results =self.model.predict(frame,stream=True,conf=0.1,half=True,max_det=50)
+        results = self.model.predict(
+            frame, stream=True, conf=0.1, half=True, max_det=50
+        )
 
         # 创建结果图像的副本
         result_image = frame
@@ -71,36 +76,42 @@ class YOLODetector:
         #                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         # return center, area_ratio, result_image
+
+
 def train():
-    dector=YOLODetector('model/yolo11n.pt')
+    dector = YOLODetector("model/yolo11n.pt")
     dector.model.train(data="model/ball.yaml", epochs=10, imgsz=640)
+
 
 def main():
     # 示例用法
-    image_path = r"C:\Users\29071\Desktop\微信图片_20250326202538.jpg"# 替换为您的图像路径
-    dector=YOLODetector(r'runs\detect\train4\weights\best.pt')
-    frame=cv2.imread(image_path)
+    image_path = (
+        r"C:\Users\29071\Desktop\微信图片_20250326202538.jpg"  # 替换为您的图像路径
+    )
+    dector = YOLODetector(r"runs\detect\train4\weights\best.pt")
+    frame = cv2.imread(image_path)
     dector.process(frame)
-    
+
     # try:
     #     center, area_ratio, result_image = dector.process(image_path)
-        
+
     #     if center is None:
     #         print("未检测到网球")
     #     else:
     #         print(f"最大网球的中心点坐标：{center}")
     #         print(f"最大网球占图像面积的比例：{area_ratio:.4f}")
-            
+
     #         # 显示结果图像
     #         cv2.imshow("Tennis Ball Detection", result_image)
     #         cv2.waitKey(0)
     #         cv2.destroyAllWindows()
-            
+
     #         # 保存结果图像
     #         cv2.imwrite("tennis_ball_detection_result.jpg", result_image)
-            
+
     # except Exception as e:
     #     print(f"发生错误：{e}")
+
 
 if __name__ == "__main__":
     main()

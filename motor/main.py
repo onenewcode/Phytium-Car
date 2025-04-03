@@ -2,7 +2,6 @@ from dora import Node
 from Motor import Motor
 
 
-
 # 使用数值作为输入 dataw 为单纯的数值，具体参考 motor.py
 def main():
     node = Node()
@@ -16,8 +15,9 @@ def main():
             if event_id == "move":
                 data = event["value"].to_pylist()
                 Control_Motor.driver.Car_run = data[0]
-        elif  event["type"] == "STOP":
+        elif event["type"] == "STOP":
             Control_Motor.Car_run = 0
+
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,8 @@ import os
 import subprocess
 import sys
 
-REQUIREMENTS_FILE = 'requirements.txt'
+REQUIREMENTS_FILE = "requirements.txt"
+
 
 def install_dependencies():
     """自动安装项目依赖"""
@@ -11,11 +12,16 @@ def install_dependencies():
         sys.exit(1)
     try:
         print("正在检查并安装依赖...")
-        subprocess.check_call([
-            sys.executable,  # 使用当前 Python 解释器
-            '-m', 'pip', 'install',
-            '-r', REQUIREMENTS_FILE
-        ])
+        subprocess.check_call(
+            [
+                sys.executable,  # 使用当前 Python 解释器
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                REQUIREMENTS_FILE,
+            ]
+        )
         print("依赖安装完成。")
     except subprocess.CalledProcessError as e:
         print(f"安装依赖失败，错误码：{e.returncode}")
@@ -23,6 +29,7 @@ def install_dependencies():
     except Exception as e:
         print(f"发生未知错误：{str(e)}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     install_dependencies()
