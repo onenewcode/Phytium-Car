@@ -27,7 +27,6 @@ class CarCV:
         self.target_found = False
         self.last_valid_position = None
         self.debug_mode = False
-        self.command_interval = 0.1
         self.recet_pos = (210, 354, 100, 100)
         self.center_x = 248
         self.center_y = 402
@@ -40,10 +39,8 @@ class CarCV:
     def process_image(self, data: List[Calculate]):
 
         current_time = time.time()
-        can_send_command = (
-            current_time - self.last_command_time
-        ) >= self.command_interval
-        if can_send_command and self.arm_state_Ready:
+
+        if  self.arm_state_Ready:
             if len(data) == 0:
                 self.handle_target_lost(current_time)
             else:

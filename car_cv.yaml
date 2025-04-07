@@ -26,10 +26,10 @@ nodes:
     outputs:
       - task
       - move
-  # - id: motor
-  #   path: motor/main.py
-  #   inputs:
-  #     move: car_cv/move
+  - id: motor
+    path: motor/main.py
+    inputs:
+      move: car_cv/move
   # - id: arm
   #   path: arm/le/main.py
   #   inputs:
@@ -37,11 +37,11 @@ nodes:
   #     tick: dora/timer/millis/50
   #   outputs: 
   #     - state
-  - id: show
-    path: show/main.py
-    # _unstable_deploy:
-    #   machine: pc
-    inputs:
-      image: color/image
+  # - id: show
+  #   path: show/main.py
+  #   _unstable_deploy:
+  #     machine: pc
+  #   inputs:
+  #     image: color/image
       # mask:  color/mask
       
