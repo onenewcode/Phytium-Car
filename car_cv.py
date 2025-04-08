@@ -33,7 +33,7 @@ class CarCV:
         self.width = 640
         self.height = 480
         self.arm_state_Ready = True
-        self.ratio_abs = 0.002
+        self.ratio_abs = 0.01
         self.ratio_num = 0.03485026041666667
 
     def process_image(self, data: List[Calculate]):
@@ -71,10 +71,10 @@ class CarCV:
                 self.search_start_time = current_time
                 print("切换搜索方向：", "右" if self.search_direction > 0 else "左")
 
-            if self.search_direction > 0 and (int(current_time * 5) % 2) == 0:
+            if self.search_direction > 0 :
                 self.move.turn_right()
                 self.last_command_time = current_time
-            elif (int(current_time * 5) % 2) == 0:
+            else:
                 self.move.turn_left()
                 self.last_command_time = current_time
 
@@ -86,8 +86,7 @@ class CarCV:
         # 计算小球与画面中心的偏移
         x_offset = x - self.center_x
         y_offset = y - self.center_y
-        # 计算比率偏差值
-        print("Sfasd", ratio)
+
         ratio_diff = abs(ratio - self.ratio_num)
         # 打印调试信息
         if self.debug_mode:
