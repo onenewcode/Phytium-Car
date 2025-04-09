@@ -3,7 +3,7 @@ nodes:
     build: pip install opencv-video-capture
     path: opencv-video-capture
     inputs: 
-      tick: dora/timer/millis/25
+      tick: dora/timer/millis/50
     env:
       PATH: 0 # optional, default is 0
     outputs: 
@@ -26,10 +26,10 @@ nodes:
     outputs:
       - task
       - move
-  # - id: motor
-  #   path: motor/main.py
-  #   inputs:
-  #     move: car_cv/move
+  - id: motor
+    path: motor/main.py
+    inputs:
+      move: car_cv/move
   # - id: arm
   #   path: arm/le/main.py
   #   inputs:

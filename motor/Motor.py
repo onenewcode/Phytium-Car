@@ -298,18 +298,39 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
     def __init__(self, port):
         super().__init__()
         self.port = port
-        self.running = False
+        self.running = True
         self.direction = None
         self.thread = None
         self.lock = threading.Lock()
+        self.last_time=time.time()
+        self.interval=0.05
         self.enable_motor()
 
     Car_run = traitlets.Integer(default_value=0)
-
+    def control_car(self):
+        actions = {
+            0: self.Stop,
+            1: self.Advance,
+            2: self.Back,
+            3: self.Move_Left,
+            4: self.Move_Right,
+            5: self.Trun_Left,
+            6: self.Trun_Right,
+            7: self.Advance_Left,
+            8: self.Advance_Right,
+            9: self.Back_Left,
+            10: self.Back_Right,
+            11: self.Rotate_Left,
+            12: self.Rotate_Right,
+        }
+        value = self.Car_run
+        while self.running:
+            with self.lock:
+                actions[value]()
+                time.sleep(0.05) 
     # 绑定 Car_run 属性的观察者函数
     @traitlets.validate("Car_run")
     def _Car_run_Task(self, proposal):
-        print("Car_run_Task called with value:", proposal["value"])  # 调试打印
         actions = {
             0: self.Stop,
             1: self.Advance,
@@ -327,7 +348,12 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         }
 
         value = proposal["value"]
-        if value in actions:
+        if value==0:
+            actions[value]()
+        current_time=time.time()
+        if current_time-self.last_time>self.interval:
+            print("Car_run_Task called with value:", proposal["value"])  # 调试打印
+            self.last_time=current_time
             actions[value]()
 
         return value
@@ -344,7 +370,13 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
             print(f"Unable to open serial port {self.port}: {e}")
-
+    # 添加一个装饰器函数来检查电机状态
+    def check_motor_state(func):
+        def wrapper(self, *args, **kwargs):
+            if not self.running:
+                self.enable_motor()
+            return func(self, *args, **kwargs)
+        return wrapper
     # 计算 CRC 函数
     def calculate_crc(self, data):
         crc = 0xFFFF
@@ -358,17 +390,21 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
         return crc
 
     def enable_motor(self):
+        self.running=True
+        print("FAdsf")
         self.send_modbus_command(self.get_modbus_command("enable"))
 
     def disable_motor(self):
+        self.running=False
         self.send_modbus_command(self.get_modbus_command("disable"))
 
     def Stop(self):
+        self.running=False
         self.send_modbus_command(self.get_modbus_command("stop"))
-
+    @check_motor_state
     def Advance(self):
         self.send_modbus_command(self.get_modbus_command("advance"))
-
+    @check_motor_state
     def Back(self):
 
         self.send_modbus_command(self.get_modbus_command("back"))
@@ -379,11 +415,11 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
     def Move_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("move_right"))
-
+    @check_motor_state
     def Trun_Left(self):
 
         self.send_modbus_command(self.get_modbus_command("turn_left"))
-
+    @check_motor_state
     def Trun_Right(self):
 
         self.send_modbus_command(self.get_modbus_command("turn_right"))

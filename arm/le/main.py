@@ -118,7 +118,7 @@ class Arm:
 def test():
     # print(lebai_sdk.discover_devices(2))
     lebai_sdk.init()
-    arm = Arm("192.168.3.220")
+    arm = Arm("192.168.1.100")
     # status_dic = arm.lebai.get_kin_data()  #获取手臂当前运动数据，返回一个字典，具体官网有详细说明。其中 actual_joint_pose 和 actual_tcp_pose 分别是关节角坐标表达的位置和笛卡尔坐标表达的位置
     # print('反馈关节位置',status_dic['actual_joint_pose'])
     arm.task()
@@ -137,14 +137,14 @@ def test():
 def main():
     node = Node()
     lebai_sdk.init()
-    arm = Arm("192.168.3.220")
+    arm = Arm("192.168.1.100")
     for event in node:
         if event["type"] == "INPUT":
             event_id = event["id"]
             if event_id == "task":
                 arm.task()
             if event_id == "tick":
-                node.send_output("state", pa.Array[arm.state()])
+                node.send_output("state", pa.array(arm.state()))
 
 
 if __name__ == "__main__":
