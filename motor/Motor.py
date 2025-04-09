@@ -6,7 +6,7 @@ import struct
 import threading
 from typing import Protocol
 from simple_pid import PID 
-
+from common.move_data import MoveData
 # 定义电机驱动基类
 class MotorBase(Protocol):
 
