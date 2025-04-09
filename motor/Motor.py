@@ -4,55 +4,18 @@ import traitlets
 import serial
 import struct
 import threading
-
+from typing import Protocol
+from simple_pid import PID 
 
 # 定义电机驱动基类
-class MotorBase:
-    def __init__(self):
-        pass
+class MotorBase(Protocol):
 
-    def Stop(self):
-        pass
-
-    def Advance(self):
-        pass
-
-    def Back(self):
-        pass
-
-    def Move_Left(self):
-        pass
-
-    def Move_Right(self):
-        pass
-
-    def Trun_Left(self):
-        pass
-
-    def Trun_Right(self):
-        pass
-
-    def Advance_Left(self):
-        pass
-
-    def Advance_Right(self):
-        pass
-
-    def Back_Left(self):
-        pass
-
-    def Back_Right(self):
-        pass
-
-    def Rotate_Left(self):
-        pass
-
-    def Rotate_Right(self):
+    def Control(self,direction,speed)->None:
         pass
 
 
 # 定义 PCA9685 电机驱动类
-class PCA9685Motor(MotorBase, traitlets.HasTraits):
+class PCA9685Motor( traitlets.HasTraits):
     def __init__(self, d1, d2, d3, d4):
         super().__init__()
         # 设置 PCA9685 I2C 地址
@@ -294,79 +257,59 @@ class PCA9685Motor(MotorBase, traitlets.HasTraits):
 
 
 # 定义 Modbus 电机驱动类
-class ModbusMotor(MotorBase, traitlets.HasTraits):
+# 在 ModbusMotor 类中添加 PID 控制相关方法
+ # 需要安装：pip install simple-pid
+
+class ModbusMotor(MotorBase ):
     def __init__(self, port):
         super().__init__()
         self.port = port
         self.running = True
-        self.direction = None
-        self.thread = None
-        self.lock = threading.Lock()
-        self.last_time=time.time()
-        self.interval=0.05
+        self.last_time = time.time()
+        self.interval = 0.05
+        # 添加速度相关的属性初始化
+        self.left_speed = 0
+        self.right_speed = 0
+        self.max_speed = 255  # 最大速度限制
         self.enable_motor()
 
-    Car_run = traitlets.Integer(default_value=0)
-    def control_car(self):
+    def set_motor_speed(self, left_speed, right_speed):
+        """设置电机速度
+        
+        Args:
+            left_speed: 左轮速度 (-255 到 255)
+            right_speed: 右轮速度 (-255 到 255)
+        """
+        # 限制速度范围
+        self.left_speed = max(-self.max_speed, min(self.max_speed, left_speed))
+        self.right_speed = max(-self.max_speed, min(self.max_speed, right_speed))
+
+
+
+    def Control(self, direction, speed):
         actions = {
             0: self.Stop,
             1: self.Advance,
             2: self.Back,
-            3: self.Move_Left,
-            4: self.Move_Right,
             5: self.Trun_Left,
             6: self.Trun_Right,
-            7: self.Advance_Left,
-            8: self.Advance_Right,
-            9: self.Back_Left,
-            10: self.Back_Right,
-            11: self.Rotate_Left,
-            12: self.Rotate_Right,
-        }
-        value = self.Car_run
-        while self.running:
-            with self.lock:
-                actions[value]()
-                time.sleep(0.05) 
-    # 绑定 Car_run 属性的观察者函数
-    @traitlets.validate("Car_run")
-    def _Car_run_Task(self, proposal):
-        actions = {
-            0: self.Stop,
-            1: self.Advance,
-            2: self.Back,
-            3: self.Move_Left,
-            4: self.Move_Right,
-            5: self.Trun_Left,
-            6: self.Trun_Right,
-            7: self.Advance_Left,
-            8: self.Advance_Right,
-            9: self.Back_Left,
-            10: self.Back_Right,
-            11: self.Rotate_Left,
-            12: self.Rotate_Right,
         }
 
-        value = proposal["value"]
-        if value==0:
-            actions[value]()
+        self.left_speed=speed
+        self.right_speed=speed
+        if direction==0:
+            actions[direction]()
         current_time=time.time()
         if current_time-self.last_time>self.interval:
-            print("Car_run_Task called with value:", proposal["value"])  # 调试打印
+            print("Car_run_Task called with value:", direction)  # 调试打印
             self.last_time=current_time
-            actions[value]()
+            actions[direction]()
 
-        return value
 
     def send_modbus_command(self, command):
-        data_without_crc = command[:-5]
-        crc = self.calculate_crc(bytes.fromhex(data_without_crc))
-        crc_bytes = struct.pack("<H", crc)
-        command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
-
         try:
-            with serial.Serial(self.port, baudrate=57600, timeout=1) as ser:
-                request = bytes.fromhex(command_with_crc)
+            with serial.Serial(self.port, baudrate=57600, timeout=0.1) as ser:
+                request = bytes.fromhex(command)
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
             print(f"Unable to open serial port {self.port}: {e}")
@@ -391,7 +334,6 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
 
     def enable_motor(self):
         self.running=True
-        print("FAdsf")
         self.send_modbus_command(self.get_modbus_command("enable"))
 
     def disable_motor(self):
@@ -409,12 +351,6 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
 
         self.send_modbus_command(self.get_modbus_command("back"))
 
-    def Move_Left(self):
-        self.send_modbus_command(self.get_modbus_command("move_left"))
-
-    def Move_Right(self):
-
-        self.send_modbus_command(self.get_modbus_command("move_right"))
     @check_motor_state
     def Trun_Left(self):
 
@@ -424,42 +360,55 @@ class ModbusMotor(MotorBase, traitlets.HasTraits):
 
         self.send_modbus_command(self.get_modbus_command("turn_right"))
 
-    def Advance_Left(self):
-
-        self.send_modbus_command(self.get_modbus_command("advance_left"))
-
-    def Advance_Right(self):
-
-        self.send_modbus_command(self.get_modbus_command("advance_right"))
-
-    def Back_Left(self):
-
-        self.send_modbus_command(self.get_modbus_command("back_left"))
-
-    def Back_Right(self):
-
-        self.send_modbus_command(self.get_modbus_command("back_right"))
-
-    def Rotate_Left(self):
-
-        self.send_modbus_command(self.get_modbus_command("rotate_left"))
-
-    def Rotate_Right(self):
-
-        self.send_modbus_command(self.get_modbus_command("rotate_right"))
 
     # 获取 Modbus 命令映射
+    def set_motor_speed(self, left_speed, right_speed):
+        """设置电机速度
+        
+        Args:
+            left_speed: 左轮速度 (-255 到 255)
+            right_speed: 右轮速度 (-255 到 255)
+        """
+        # 限制速度范围
+        self.left_speed = left_speed
+        self.right_speed = right_speed
+        
     def get_modbus_command(self, action):
-        commands = {
-            "enable": "05 44 21 00 31 00 00 01 00 01 75 34",
-            "disable": "05 44 21 00 31 00 00 00 00 00 E5 34",
-            "stop": "05 44 21 00 31 00 00 00 00 00 E5 34",
-            "advance": "05 44 23 18 33 18 FF 9C FF 9C 9D 38",
-            "back": "05 44 23 18 33 18 00 64 00 64 9D 38",
-            "turn_left": "05 44 23 18 33 18 00 64 FF 9C 9D 38",
-            "turn_right": "05 44 23 18 33 18 FF 9C 00 64 9D 38",
+        """获取 Modbus 命令"""
+        # 转换速度为十六进制格式
+        def speed_to_hex(speed):
+            if speed >= 0:
+                return f"FF {speed:02X}"  # 正向速度
+            else:
+                return f"00 {abs(speed):02X}"  # 反向速度
+
+        # 基础命令模板
+        base_commands = {
+            "enable": "05 44 21 00 31 00 00 01 00 01",
+            "disable": "05 44 21 00 31 00 00 00 00 00",
+            "stop": "05 44 21 00 31 00 00 00 00 00",
         }
-        return commands.get(action, "")
+
+        # 运动命令需要动态生成
+        movement_commands = {
+            "advance": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
+            "back": f"05 44 23 18 33 18 {speed_to_hex(-self.left_speed)} {speed_to_hex(-self.right_speed)}",
+            "turn_left": f"05 44 23 18 33 18 {speed_to_hex(-self.left_speed)} {speed_to_hex(self.right_speed)}",
+            "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(-self.right_speed)}",
+        }
+
+        # 合并命令字典
+        commands = {**base_commands, **movement_commands}
+        command = commands.get(action, "")
+        
+        # 如果命令非空，计算并添加 CRC
+        if command:
+            data = bytes.fromhex(command)
+            crc = self.calculate_crc(data)
+            crc_bytes = struct.pack('<H', crc)
+            command = f"{command} {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+        print(command)
+        return command
 
 
 # 统一的电机控制类，可以选择使用哪种驱动方式
@@ -492,43 +441,27 @@ class Motor:
         """转发方法调用到具体的驱动实现"""
         return getattr(self.driver, name)
 
-
+def calculate_crc(data):
+        crc = 0xFFFF
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 0x0001:
+                    crc = (crc >> 1) ^ 0xA001
+                else:
+                    crc = crc >> 1
+        return crc
+def send_modbus_command(command):
+    
+            data_without_crc = command[:-5]
+            crc = calculate_crc(bytes.fromhex(data_without_crc))
+            crc_bytes = struct.pack('<H', crc)
+            command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+            print(command_with_crc)
 if __name__ == "__main__":
-    try:
-        # 使用 Modbus 驱动
-        car_controller = Motor(driver_type="modbus", port="/dev/ttyUSB0")
-        print("使用 Modbus 驱动启动")
+    # 使用 Modbus 驱动
+    # car_controller:MotorBase = ModbusMotor(port="COM1")
+    # car_controller.Control(1,100)
+    send_modbus_command("05 44 23 18 33 18 FF 64 FF 64 AD 09")
 
-        # 启用电机
-
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-        time.sleep(0.1)  # 持续运行 1 秒
-        car_controller.driver.Car_run = 1
-
-        # 调用 enable_motor 方法
-
-    except KeyboardInterrupt:
-        # 使用 Ctrl+C 退出循环时，关闭驱动
-        if Control_Motor.driver_type == "pca9685":
-            Control_Motor.driver.bus.write_byte_data(
-                Control_Motor.driver.PCA9685_ADDRESS, Control_Motor.driver.MODE1, 0x00
-            )
-        else:
-            Control_Motor.driver.disable_motor()
+               
