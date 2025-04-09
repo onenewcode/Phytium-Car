@@ -1,12 +1,15 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../')
 import smbus
 import time
 import traitlets
 import serial
 import struct
-import threading
 from typing import Protocol
 from simple_pid import PID 
 from common.move_data import MoveData
+
 # 定义电机驱动基类
 class MotorBase(Protocol):
 
@@ -286,7 +289,7 @@ class ModbusMotor(MotorBase ):
 
 
 
-    def Control(self, direction, speed):
+    def Control(self, data:MoveData):
         actions = {
             0: self.Stop,
             1: self.Advance,
@@ -295,15 +298,15 @@ class ModbusMotor(MotorBase ):
             6: self.Trun_Right,
         }
 
-        self.left_speed=speed
-        self.right_speed=speed
-        if direction==0:
-            actions[direction]()
+        self.left_speed=data.speed
+        self.right_speed=data.speed
+        if data.direct==0:
+            actions[data.direct]()
         current_time=time.time()
         if current_time-self.last_time>self.interval:
-            print("Car_run_Task called with value:", direction)  # 调试打印
+            print("Car_run_Task called with value:", data.direct)  # 调试打印
             self.last_time=current_time
-            actions[direction]()
+            actions[data.direct]()
 
 
     def send_modbus_command(self, command):
@@ -407,7 +410,6 @@ class ModbusMotor(MotorBase ):
             crc = self.calculate_crc(data)
             crc_bytes = struct.pack('<H', crc)
             command = f"{command} {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
-        print(command)
         return command
 
 
