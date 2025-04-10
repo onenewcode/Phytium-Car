@@ -261,7 +261,7 @@ class PCA9685Motor( traitlets.HasTraits):
 
 # 定义 Modbus 电机驱动类
 # 在 ModbusMotor 类中添加 PID 控制相关方法
- # 需要安装：pip install simple-pid
+# 需要安装：pip install simple-pid
 
 class ModbusMotor(MotorBase ):
     def __init__(self, port):
@@ -356,13 +356,12 @@ class ModbusMotor(MotorBase ):
 
  
     def Trun_Left(self):
-        self.left_speed=100
-        self.right_speed=-100
+       
+        self.right_speed=-self.right_speed
         self.send_modbus_command(self.get_modbus_command("turn_left"))
  
     def Trun_Right(self):
-        self.left_speed=-100
-        self.right_speed=100
+        self.left_speed=-self.left_speed
         self.send_modbus_command(self.get_modbus_command("turn_right"))
 
 

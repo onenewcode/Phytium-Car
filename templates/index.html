@@ -10,6 +10,7 @@
             margin: 0;
             height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             background-color: #f4f4f4;
@@ -22,6 +23,7 @@
             border-radius: 50%;
             background-color: #ddd;
             overflow: hidden;
+            margin-bottom: 20px;
         }
         #control-point {
             position: absolute;
@@ -70,9 +72,52 @@
             color: #333;
             pointer-events: none; /* 不阻止鼠标事件 */
         }
+        
+        /* 添加数据显示区域的样式 */
+        #data-display {
+            width: 300px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        #data-display h3 {
+            margin-top: 0;
+            color: #333;
+            text-align: center;
+        }
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+        }
+        .data-label {
+            font-weight: bold;
+        }
+        
+        /* 添加视频显示区域的样式 */
+        #video-display {
+            width: 640px;
+            height: 480px;
+            background-color: #000;
+            margin: 20px 0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #video-frame {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
     </style>
 </head>
 <body>
+    <!-- 添加视频显示区域 -->
+    <div id="video-display">
+        <img id="video-frame" src="" alt="视频流">
+    </div>
+    
     <div id="control-area">
         <div class="direction-zone up-zone"></div>
         <div class="direction-zone down-zone"></div>
@@ -81,13 +126,46 @@
         <div id="control-point"></div>
         <div id="direction-label">控制方向</div>
     </div>
+    
+    <!-- 添加数据显示区域 -->
+    <div id="data-display">
+        <h3>移动数据</h3>
+        <div class="data-item">
+            <span class="data-label">方向:</span>
+            <span id="move-direction">-</span>
+        </div>
+        <div class="data-item">
+            <span class="data-label">速度:</span>
+            <span id="move-speed">-</span>
+        </div>
+    </div>
+    
     <script>
         const controlPoint = document.getElementById('control-point');
         const controlArea = document.getElementById('control-area');
         const directionLabel = document.getElementById('direction-label');
+        const videoFrame = document.getElementById('video-frame');
         const radius = controlArea.offsetWidth / 2 - controlPoint.offsetWidth / 2;
         const socket = io(); // 连接到后端 Socket.IO 服务器
         let activeDirection = null;
+
+        // 接收后端发送的视频帧
+        socket.on('video_frame_update', function(data) {
+            if (data.frame) {
+                videoFrame.src = 'data:image/jpeg;base64,' + data.frame;
+            }
+        });
+
+        // 接收后端发送的移动数据
+        socket.on('move_data_update', function(data) {
+            const moveData = data.move_data;
+            if (moveData) {
+                // 根据 MoveData 类的结构显示数据
+                // 假设 MoveData 有 direction 和 speed 属性
+                moveDirectionElement.textContent = moveData.direction || '-';
+                moveSpeedElement.textContent = moveData.speed || '-';
+            }
+        });
 
         // 鼠标事件
         controlPoint.addEventListener('mousedown', dragStart);

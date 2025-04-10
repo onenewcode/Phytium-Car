@@ -74,8 +74,12 @@ class CarCV:
         self.last_x_offset = 0
         self.last_y_offset = 0
         
-        self.speed_pid = PID(Kp=0.5, Ki=0.1, Kd=0.05, setpoint=1.0)  # setpoint 设为 1.0，表示目标比率和实际比率相等
+        # 修改PID控制器参数
+        self.speed_pid = PID(Kp=0.5, Ki=0.1, Kd=0.05, setpoint=1.0)
         self.speed_pid.output_limits = (2, 100)  # 速度范围限制
+        
+        # 添加比率阈值参数
+        self.ratio_threshold = 0.7  # 当比率比值小于此阈值时使用最大速度
 
     def process_image(self, data: List[Calculate],node=None)->MoveData:
 
@@ -124,7 +128,7 @@ class CarCV:
         """低通滤波器"""
         return self.alpha * new_value + (1 - self.alpha) * last_value
 
-    def handle_target_found(self, x, y, ratio, current_time,node)->MoveData:
+    def handle_target_found(self, x, y, ratio, current_time, node)->MoveData:
         self.lost_count = 0
         self.target_found = True
         self.last_valid_position = (x, y)
@@ -142,9 +146,15 @@ class CarCV:
         self.last_x_offset = x_offset
         self.last_y_offset = y_offset
         
-        # 计算比率比值并用 PID 控制器计算速度
+        # 计算比率比值并根据阈值决定速度
         ratio_proportion = ratio / self.ratio_num if ratio > 0 else 0
-        speed = int(self.speed_pid(ratio_proportion))
+        
+        # 当比率比值小于阈值时，使用最大速度
+        if ratio_proportion < self.ratio_threshold:
+            speed = 100  # 使用最大速度
+        else:
+            # 否则使用PID控制器计算速度
+            speed = int(self.speed_pid(ratio_proportion))
         
         # 打印调试信息
         if self.debug_mode:

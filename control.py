@@ -68,6 +68,26 @@ def cv():
     finally:
         cap.release()
 
+# 添加一个新函数，定期发送数据到前端
+def send_move_data():
+    while True:
+        if latest_move_data is not None:
+            socketio.emit('move_data_update', {'move_data': latest_move_data.__dict__})
+        time.sleep(0.1)  # 每100毫秒发送一次数据
+
+# 添加一个新函数，定期发送视频帧到前端
+def send_video_frame():
+    while True:
+        if processed_frame is not None:
+            # 将OpenCV图像转换为JPEG
+            ret, jpeg = cv2.imencode('.jpg', processed_frame)
+            if ret:
+                # 将JPEG转换为Base64字符串
+                jpeg_base64 = base64.b64encode(jpeg.tobytes()).decode('utf-8')
+                # 发送到前端
+                socketio.emit('video_frame_update', {'frame': jpeg_base64})
+        time.sleep(0.1)  # 每100毫秒发送一次
+
 if __name__ == "__main__":
     # 添加全局变量
     latest_move_data = None
@@ -77,6 +97,14 @@ if __name__ == "__main__":
     # 创建并启动 CV 线程
     cv_thread = threading.Thread(target=cv, daemon=True)
     cv_thread.start()
+    
+    # 创建并启动数据发送线程
+    data_thread = threading.Thread(target=send_move_data, daemon=True)
+    data_thread.start()
+    
+    # 创建并启动视频帧发送线程
+    video_thread = threading.Thread(target=send_video_frame, daemon=True)
+    video_thread.start()
     
     port_name = '/dev/ttyUSB0'  # 串口名称，根据实际情况修改
     car_controller:MotorBase = ModbusMotor(port=port_name)
