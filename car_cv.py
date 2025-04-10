@@ -5,7 +5,7 @@ from move import Move
 from mycv import ColorDetector
 import time
 from untils import Calculate
-
+from simple_pid import PID
 
 class CarCV:
 
@@ -35,6 +35,14 @@ class CarCV:
         self.arm_state_Ready = True
         self.ratio_abs = 0.01
         self.ratio_num = 0.03485026041666667
+        
+        # 添加低通滤波器参数
+        self.alpha = 0.2  # 平滑因子 (0-1)
+        self.last_x_offset = 0
+        self.last_y_offset = 0
+        
+        self.speed_pid = PID(Kp=0.5, Ki=0.1, Kd=0.05, setpoint=1.0)  # setpoint 设为 1.0，表示目标比率和实际比率相等
+        self.speed_pid.output_limits = (2, 100)  # 速度范围限制
 
     def process_image(self, data: List[Calculate]):
 
@@ -72,47 +80,60 @@ class CarCV:
                 print("切换搜索方向：", "右" if self.search_direction > 0 else "左")
 
             if self.search_direction > 0 :
-                self.move.turn_right()
+                pass
+                # self.move.turn_right()
                 self.last_command_time = current_time
             else:
-                self.move.turn_left()
+                pass
+                # self.move.turn_left()
                 self.last_command_time = current_time
+
+    def low_pass_filter(self, new_value, last_value):
+        """低通滤波器"""
+        return self.alpha * new_value + (1 - self.alpha) * last_value
 
     def handle_target_found(self, x, y, ratio, current_time):
         self.lost_count = 0
         self.target_found = True
         self.last_valid_position = (x, y)
         self.last_command_time = current_time
-        # 计算小球与画面中心的偏移
-        x_offset = x - self.center_x
-        y_offset = y - self.center_y
-
-        ratio_diff = abs(ratio - self.ratio_num)
+        
+        # 计算原始偏移
+        raw_x_offset = x - self.center_x
+        raw_y_offset = y - self.center_y
+        
+        # 应用低通滤波
+        x_offset = self.low_pass_filter(raw_x_offset, self.last_x_offset)
+        y_offset = self.low_pass_filter(raw_y_offset, self.last_y_offset)
+        
+        # 更新上一次的偏移值
+        self.last_x_offset = x_offset
+        self.last_y_offset = y_offset
+        
+        # 计算比率比值并用 PID 控制器计算速度
+        ratio_proportion = ratio / self.ratio_num if ratio > 0 else 0
+        speed = int(self.speed_pid(ratio_proportion))
+        
         # 打印调试信息
         if self.debug_mode:
-            print(
-                f"目标位置：({x}, {y}), 偏移：({x_offset}, {y_offset}), 比率：{ratio}, 比率偏差：{ratio_diff}"
-            )
-        # 当比率偏差小于 0.1 时，小车停下
-        if ratio_diff < self.ratio_abs:
-            self.move.stop()
-            return
-        # 根据目标位置控制小车移动
+            print(f"目标位置：({x}, {y}), 偏移：({x_offset}, {y_offset}), "
+                  f"目标比率：{self.ratio_num:.4f}, 当前比率：{ratio:.4f}, "
+                  f"比率比值：{ratio_proportion:.4f}, 速度：{speed}")
+        
+        # 根据偏移控制移动
         if abs(x_offset) > 50:  # 如果水平偏移较大
             if x_offset > 0:
-                self.move.turn_left()
+                pass
+                # self.move.turn_left()
             else:
-                self.move.turn_right()
+                pass
+                # self.move.turn_right()
         elif y_offset > 50:  # 如果目标在下方
-            self.move.Back()
+            self.move.Back(speed)
         elif y_offset < -50:  # 如果目标在上方
-            self.move.advance()
+            self.move.advance(speed)
         else:
-            # 如果位置接近中心但比率不对，调整前后位置
-            if ratio < self.ratio_abs:
-                self.move.advance()
-            else:
-                self.move.Back()
+            self.move.stop()
 
     def run(self):
         for event in self.node:

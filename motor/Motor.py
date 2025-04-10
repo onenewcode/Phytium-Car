@@ -275,7 +275,7 @@ class ModbusMotor(MotorBase ):
         self.right_speed = 0
         self.max_speed = 255  # 最大速度限制
         self.enable_motor()
-
+        
     def set_motor_speed(self, left_speed, right_speed):
         """设置电机速度
         
@@ -290,6 +290,7 @@ class ModbusMotor(MotorBase ):
 
 
     def Control(self, data:MoveData):
+        # TODO 目前只前进后悔控制速度，左转右转时速度影响转弯半径
         actions = {
             0: self.Stop,
             1: self.Advance,
@@ -344,23 +345,23 @@ class ModbusMotor(MotorBase ):
         self.send_modbus_command(self.get_modbus_command("disable"))
 
     def Stop(self):
-        self.running=False
         self.send_modbus_command(self.get_modbus_command("stop"))
-    @check_motor_state
+  
     def Advance(self):
         self.send_modbus_command(self.get_modbus_command("advance"))
-    @check_motor_state
+
     def Back(self):
 
         self.send_modbus_command(self.get_modbus_command("back"))
 
-    @check_motor_state
+ 
     def Trun_Left(self):
-
+        self.left_speed=10
+        self.right_speed=-10
         self.send_modbus_command(self.get_modbus_command("turn_left"))
-    @check_motor_state
+ 
     def Trun_Right(self):
-
+  
         self.send_modbus_command(self.get_modbus_command("turn_right"))
 
 
@@ -381,23 +382,24 @@ class ModbusMotor(MotorBase ):
         # 转换速度为十六进制格式
         def speed_to_hex(speed):
             if speed >= 0:
-                return f"FF {speed:02X}"  # 正向速度
+                return f"00 {speed:02X}"  # 正向速度
             else:
-                return f"00 {abs(speed):02X}"  # 反向速度
+                speed=abs(speed)+56
+                return f"FF {abs(speed):02X}"  # 反向速度
 
         # 基础命令模板
         base_commands = {
             "enable": "05 44 21 00 31 00 00 01 00 01",
             "disable": "05 44 21 00 31 00 00 00 00 00",
-            "stop": "05 44 21 00 31 00 00 00 00 00",
+            "stop": "05 44 23 18 33 18 00 00 00 00 00",
         }
 
         # 运动命令需要动态生成
         movement_commands = {
             "advance": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
-            "back": f"05 44 23 18 33 18 {speed_to_hex(-self.left_speed)} {speed_to_hex(-self.right_speed)}",
-            "turn_left": f"05 44 23 18 33 18 {speed_to_hex(-self.left_speed)} {speed_to_hex(self.right_speed)}",
-            "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(-self.right_speed)}",
+            "back": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
+            "turn_left": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
+            "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
         }
 
         # 合并命令字典
@@ -410,6 +412,7 @@ class ModbusMotor(MotorBase ):
             crc = self.calculate_crc(data)
             crc_bytes = struct.pack('<H', crc)
             command = f"{command} {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+        print(command)
         return command
 
 

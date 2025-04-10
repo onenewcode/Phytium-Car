@@ -1,121 +1,105 @@
-import serial
-import struct
-import threading
+import cv2
+import numpy as np
 import time
 
+# PID 控制器类
+class PIDController:
+    def __init__(self, Kp, Ki, Kd):
+        self.Kp = Kp  # 比例系数
+        self.Ki = Ki  # 积分系数
+        self.Kd = Kd  # 微分系数
+        self.previous_error = 0  # 上一次的误差
+        self.integral = 0         # 积分累加值
 
-def calculate_crc(data):
-    crc = 0xFFFF
-    for pos in data:
-        crc ^= pos
-        for _ in range(8):
-            if (crc & 0x0001) != 0:
-                crc >>= 1
-                crc ^= 0xA001
-            else:
-                crc >>= 1
-    return crc
+    def compute(self, setpoint, measured_value, dt):
+        """
+        计算 PID 输出
+        :param setpoint: 目标值
+        :param measured_value: 当前测量值
+        :param dt: 时间间隔（秒）
+        :return: PID 输出值
+        """
+        error = setpoint - measured_value  # 计算误差
+        self.integral += error * dt        # 累积误差
+        derivative = (error - self.previous_error) / dt  # 计算误差变化率
 
+        output = (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
 
-class CarController:
-    def __init__(self, port):
-        self.port = port
-        self.running = False
-        self.direction = None
-        self.thread = None
-        self.command_queue = []
-        self.lock = threading.Lock()
-        self.current_key = None
+        self.previous_error = error  # 更新上一次的误差
+        return output
 
-    def send_modbus_command(self, command):
-        data_without_crc = command[:-5]
-        crc = calculate_crc(bytes.fromhex(data_without_crc))
-        crc_bytes = struct.pack("<H", crc)
-        command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+# 初始化摄像头
+cap = cv2.VideoCapture(0)
 
-        try:
-            with serial.Serial(self.port, baudrate=57600, timeout=1) as ser:
-                request = bytes.fromhex(command_with_crc)
-                ser.write(request)
-        except (serial.SerialException, OSError) as e:
-            print(f"Unable to open serial port {self.port}: {e}")
+# 设置目标物体的颜色范围 (HSV 空间)
+lower_color = np.array([30, 50, 50])  # 下界 (绿色为例)
+upper_color = np.array([90, 255, 255])  # 上界
 
-    def control_car(self):
-        while self.running:
-            with self.lock:
-                if self.command_queue:
-                    command = self.command_queue.pop(0)
-                    self.send_modbus_command(command)
-                    time.sleep(0.05)
+# 目标面积
+target_area = 10000  # 目标物体的理想面积
 
-    def start(self, direction):
-        with self.lock:
-            if not self.running:
-                self.send_modbus_command(
-                    "05 44 21 00 31 00 00 01 00 01 75 34"
-                )  # 使能电机
-                self.running = True
-                self.thread = threading.Thread(target=self.control_car)
-                self.thread.start()
+# 初始化 PID 控制器
+pid = PIDController(Kp=0.1, Ki=0.01, Kd=0.001)
 
-            self.command_queue.clear()
-            command = self.get_command(direction)
-            if command:
-                self.command_queue.append(command)
+# 小车速度控制函数 (伪代码)
+def control_car(speed):
+    if speed > 0:
+        print(f"前进，速度: {speed:.2f}")
+    elif speed == 0:
+        print("停止")
+    else:
+        print(f"后退，速度: {speed:.2f}")
 
-    def stop(self):
-        with self.lock:
-            self.running = False
-            if self.thread:
-                self.thread.join()
-            self.command_queue.clear()
-            self.send_modbus_command("05 44 21 00 31 00 00 00 00 00 E5 34")
+# 主循环
+last_time = time.time()
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("无法读取摄像头画面")
+        break
 
-    def disable(self):
-        with self.lock:
-            self.command_queue.clear()
-            self.send_modbus_command("05 44 21 00 31 00 00 00 00 00 E5 34")  # 失能电机
+    # 转换为 HSV 空间
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    def get_command(self, direction):
-        commands = {
-            "up": "05 44 23 18 33 18 FF 9C FF 9C 9D 38",  # 前进
-            "down": "05 44 23 18 33 18 00 64 00 64 9D 38",  # 后退
-            "left": "05 44 23 18 33 18 00 64 FF 9C 9D 38",  # 左转
-            "right": "05 44 23 18 33 18 FF 9C 00 64 9D 38",  # 右转
-        }
-        return commands.get(direction)
+    # 颜色阈值分割
+    mask = cv2.inRange(hsv, lower_color, upper_color)
 
+    # 查找轮廓
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-if __name__ == "__main__":
-    port_name = "/dev/ttyUSB0"  # 串口名称，根据实际情况修改
-    car_controller = CarController(port_name)
+    current_time = time.time()
+    dt = current_time - last_time  # 计算时间间隔
+    last_time = current_time
 
-    # 启用电机
-    car_controller.send_modbus_command("05 44 21 00 31 00 00 01 00 01 75 34")
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
+    if contours:
+        # 找到最大的轮廓
+        largest_contour = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(largest_contour)
 
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    time.sleep(0.1)  # 持续运行 1 秒
-    car_controller.send_modbus_command("05 44 23 18 33 18 FF 9C FF 9C 9D 38")
-    car_controller.start("up")
+        # 绘制轮廓
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    time.sleep(1)  # 持续运行 1 秒
-    car_controller.stop()
+        # 显示物体面积
+        cv2.putText(frame, f"Area: {area}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-    # 程序退出前禁用电机
-    car_controller.disable()
+        # 使用 PID 控制器计算速度
+        speed = pid.compute(target_area, area, dt)
+
+        # 将速度限制在合理范围内
+        speed = max(-100, min(100, speed))  # 限制速度在 [-100, 100] 之间
+
+        # 控制小车
+        control_car(speed)
+
+    # 显示结果
+    cv2.imshow("Frame", frame)
+    cv2.imshow("Mask", mask)
+
+    # 按下 'q' 键退出
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# 释放资源
+cap.release()
+cv2.destroyAllWindows()

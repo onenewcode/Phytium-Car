@@ -34,20 +34,20 @@ class Move:
 
     @debug_log
     def stop(self):
-        return self.send(0)
+        return self.send(0,0)
 
     @debug_log
-    def advance(self,speed=50):
+    def advance(self,speed=2):
         return self.send(1,speed)
 
     @debug_log
-    def Back(self,speed=50):
+    def Back(self,speed=2):
         return self.send(2,speed)
 
     @debug_log
-    def turn_left(self,speed=50):
+    def turn_left(self,speed=2):
         return self.send(5,speed)
 
     @debug_log
-    def turn_right(self,speed=50):
+    def turn_right(self,speed=2):
         return self.send(6,speed)
