@@ -13,7 +13,7 @@ from common.move_data import MoveData
 # 定义电机驱动基类
 class MotorBase(Protocol):
 
-    def Control(self,direction,speed)->None:
+    def Control(self,data:MoveData)->None:
         pass
 
 
@@ -356,12 +356,13 @@ class ModbusMotor(MotorBase ):
 
  
     def Trun_Left(self):
-        self.left_speed=-100
+        self.left_speed=100
         self.right_speed=-100
         self.send_modbus_command(self.get_modbus_command("turn_left"))
  
     def Trun_Right(self):
-  
+        self.left_speed=-100
+        self.right_speed=100
         self.send_modbus_command(self.get_modbus_command("turn_right"))
 
 
@@ -382,10 +383,10 @@ class ModbusMotor(MotorBase ):
         # 转换速度为十六进制格式
         def speed_to_hex(speed):
             if speed >= 0:
-                return f"00 {speed:02X}"  # 正向速度
-            else:
                 speed=abs(speed)+56
-                return f"FF {abs(speed):02X}"  # 反向速度
+                return f"FF {speed:02X}"  
+            else:
+                 return f"00 {abs(speed):02X}"  
 
         # 基础命令模板
         base_commands = {
@@ -396,10 +397,10 @@ class ModbusMotor(MotorBase ):
 
         # 运动命令需要动态生成
         movement_commands = {
-            "advance": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
-            "back": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
-            "turn_left": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
-            "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.left_speed)} {speed_to_hex(self.right_speed)}",
+            "advance": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
+            "back": f"05 44 23 18 33 18 {speed_to_hex(-self.right_speed)} {speed_to_hex(-self.left_speed)}",
+            "turn_left": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
+            "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
         }
 
         # 合并命令字典
