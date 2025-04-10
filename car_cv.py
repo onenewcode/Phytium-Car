@@ -1,17 +1,50 @@
 from dora import Node
 import cv2
 from traitlets import List
+from common.move_data import MoveData
 from move import Move
 from mycv import ColorDetector
 import time
 from untils import Calculate
 from simple_pid import PID
+def send(node:Node, direction,speed)->MoveData:
+        """
+        发送运动数据给其他节点
+        Args:
+            direction (int): 运动的方向。
 
+        Returns:
+            bool: 是否发送成功。
+
+        Raises:
+            ZeroDivisionError: 如果除数为零，则抛出异常。
+        """
+        data=MoveData(direction,speed).to_arrow_array()
+        if node!=None:
+             node.send_output("move", data)
+        return data
+        
+def stop(node:Node)->MoveData:
+        return send(node,0,0)
+
+
+def advance(node:Node,speed=2)->MoveData:
+        return send(node,1,speed)
+
+
+def back(node:Node,speed=2)->MoveData:
+        return send(node,2,speed)
+
+
+def turn_left(node:Node,speed=50)->MoveData:
+        return send(node,5,speed)
+
+
+def turn_right(node:Node,speed=50)->MoveData:
+        return send(node,6,speed)
 class CarCV:
 
     def __init__(self):
-        self.node = Node()
-        self.move = Move(self.node)
         self.lower_tennis = [30, 70, 80]
         self.upper_tennis = [50, 255, 255]
         self.detector = ColorDetector(
@@ -44,19 +77,19 @@ class CarCV:
         self.speed_pid = PID(Kp=0.5, Ki=0.1, Kd=0.05, setpoint=1.0)  # setpoint 设为 1.0，表示目标比率和实际比率相等
         self.speed_pid.output_limits = (2, 100)  # 速度范围限制
 
-    def process_image(self, data: List[Calculate]):
+    def process_image(self, data: List[Calculate],node=None)->MoveData:
 
         current_time = time.time()
 
         if  self.arm_state_Ready:
             if len(data) == 0:
-                self.handle_target_lost(current_time)
+                return self.handle_target_lost(current_time,node)
             else:
-                self.handle_target_found(
-                    data[0].x, data[0].y, data[0].ratio, current_time
+                return self.handle_target_found(
+                    data[0].x, data[0].y, data[0].ratio, current_time,node
                 )
 
-    def handle_target_lost(self, current_time):
+    def handle_target_lost(self, current_time,node)->MoveData:
         self.lost_count += 1
         self.target_found = False
 
@@ -80,17 +113,18 @@ class CarCV:
                 print("切换搜索方向：", "右" if self.search_direction > 0 else "左")
 
             if self.search_direction > 0 :
-                self.move.turn_right()
                 self.last_command_time = current_time
+                return  turn_right(node)
             else:
-                self.move.turn_left()
                 self.last_command_time = current_time
+                return turn_left(node)
+                
 
     def low_pass_filter(self, new_value, last_value):
         """低通滤波器"""
         return self.alpha * new_value + (1 - self.alpha) * last_value
 
-    def handle_target_found(self, x, y, ratio, current_time):
+    def handle_target_found(self, x, y, ratio, current_time,node)->MoveData:
         self.lost_count = 0
         self.target_found = True
         self.last_valid_position = (x, y)
@@ -121,20 +155,18 @@ class CarCV:
         # 根据偏移控制移动
         if abs(x_offset) > 50:  # 如果水平偏移较大
             if x_offset > 0:
-                pass
-                self.move.turn_left()
+               return turn_left(node,speed)
             else:
-                pass
-                self.move.turn_right()
+                return turn_right(node,speed)
         elif y_offset > 50:  # 如果目标在下方
-            self.move.Back(speed)
+            return back(node,speed)
         elif y_offset < -50:  # 如果目标在上方
-            self.move.advance(speed)
+            return advance(node,speed)
         else:
-            self.move.stop()
+            return stop(node)
 
-    def run(self):
-        for event in self.node:
+    def run(self,node):
+        for event in node:
             if event["type"] == "INPUT":
                 event_id = event["id"]
                 if event_id == "data":
@@ -151,5 +183,6 @@ class CarCV:
 
 
 if __name__ == "__main__":
+    node = Node()
     car_cv = CarCV()
-    car_cv.run()
+    car_cv.run(node)
