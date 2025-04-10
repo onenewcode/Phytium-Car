@@ -80,12 +80,10 @@ class CarCV:
                 print("切换搜索方向：", "右" if self.search_direction > 0 else "左")
 
             if self.search_direction > 0 :
-                pass
-                # self.move.turn_right()
+                self.move.turn_right()
                 self.last_command_time = current_time
             else:
-                pass
-                # self.move.turn_left()
+                self.move.turn_left()
                 self.last_command_time = current_time
 
     def low_pass_filter(self, new_value, last_value):
@@ -124,10 +122,10 @@ class CarCV:
         if abs(x_offset) > 50:  # 如果水平偏移较大
             if x_offset > 0:
                 pass
-                # self.move.turn_left()
+                self.move.turn_left()
             else:
                 pass
-                # self.move.turn_right()
+                self.move.turn_right()
         elif y_offset > 50:  # 如果目标在下方
             self.move.Back(speed)
         elif y_offset < -50:  # 如果目标在上方

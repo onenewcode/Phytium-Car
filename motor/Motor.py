@@ -356,8 +356,8 @@ class ModbusMotor(MotorBase ):
 
  
     def Trun_Left(self):
-        self.left_speed=10
-        self.right_speed=-10
+        self.left_speed=-100
+        self.right_speed=-100
         self.send_modbus_command(self.get_modbus_command("turn_left"))
  
     def Trun_Right(self):
