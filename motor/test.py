@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import time
 
+
 # PID 控制器类
 class PIDController:
     def __init__(self, Kp, Ki, Kd):
@@ -9,7 +10,7 @@ class PIDController:
         self.Ki = Ki  # 积分系数
         self.Kd = Kd  # 微分系数
         self.previous_error = 0  # 上一次的误差
-        self.integral = 0         # 积分累加值
+        self.integral = 0  # 积分累加值
 
     def compute(self, setpoint, measured_value, dt):
         """
@@ -20,13 +21,14 @@ class PIDController:
         :return: PID 输出值
         """
         error = setpoint - measured_value  # 计算误差
-        self.integral += error * dt        # 累积误差
+        self.integral += error * dt  # 累积误差
         derivative = (error - self.previous_error) / dt  # 计算误差变化率
 
         output = (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
 
         self.previous_error = error  # 更新上一次的误差
         return output
+
 
 # 初始化摄像头
 cap = cv2.VideoCapture(0)
@@ -41,6 +43,7 @@ target_area = 10000  # 目标物体的理想面积
 # 初始化 PID 控制器
 pid = PIDController(Kp=0.1, Ki=0.01, Kd=0.001)
 
+
 # 小车速度控制函数 (伪代码)
 def control_car(speed):
     if speed > 0:
@@ -49,6 +52,7 @@ def control_car(speed):
         print("停止")
     else:
         print(f"后退，速度: {speed:.2f}")
+
 
 # 主循环
 last_time = time.time()
@@ -81,7 +85,15 @@ while True:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
         # 显示物体面积
-        cv2.putText(frame, f"Area: {area}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(
+            frame,
+            f"Area: {area}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 255),
+            2,
+        )
 
         # 使用 PID 控制器计算速度
         speed = pid.compute(target_area, area, dt)
@@ -97,7 +109,7 @@ while True:
     cv2.imshow("Mask", mask)
 
     # 按下 'q' 键退出
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 # 释放资源

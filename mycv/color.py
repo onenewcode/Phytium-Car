@@ -167,7 +167,7 @@ class ColorDetector:
 # 接受传入的图像，发送处理后的图像，轮廓，中心点，掩膜
 def main():
     node = Node()
-    dector = ColorDetector([30, 70, 80], [50, 255, 255], min_area=300)
+    dector = ColorDetector([30, 70, 80], [50, 255, 255], min_area=50)
     for event in node:
         if event["type"] == "INPUT":
             event_id = event["id"]

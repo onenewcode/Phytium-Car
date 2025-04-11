@@ -1,17 +1,20 @@
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../')
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 from dora import Node
-from Motor import MotorBase,ModbusMotor
+from Motor import MotorBase, ModbusMotor
 from common.move_data import MoveData
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 # 使用数值作为输入 dataw 为单纯的数值，具体参考 motor.py
 def main():
     node = Node()
     # 初始化电机
-    car_controller:MotorBase = ModbusMotor(port="/dev/ttyUSB0") 
+    car_controller: MotorBase = ModbusMotor(port="/dev/ttyUSB0")
 
     for event in node:
         # 控制车的循环，也许需要加入睡眠机制防止短时间大量指令

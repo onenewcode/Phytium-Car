@@ -145,6 +145,8 @@
         const controlArea = document.getElementById('control-area');
         const directionLabel = document.getElementById('direction-label');
         const videoFrame = document.getElementById('video-frame');
+        const moveDirectionElement = document.getElementById('move-direction');
+        const moveSpeedElement = document.getElementById('move-speed');
         const radius = controlArea.offsetWidth / 2 - controlPoint.offsetWidth / 2;
         const socket = io(); // 连接到后端 Socket.IO 服务器
         let activeDirection = null;

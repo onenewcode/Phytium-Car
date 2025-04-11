@@ -57,3 +57,15 @@ class Calculate:
             Calculate(item["x"].as_py(), item["y"].as_py(), item["ratio"].as_py())
             for item in pa_array
         ]
+
+
+# 方向转换
+def translate_direction(direction: int):
+    directions = {
+        0: "Stop",
+        1: "Advance",
+        2: "Back",
+        5: "Trun_Left",
+        6: "Trun_Right",
+    }
+    return directions.get(direction)

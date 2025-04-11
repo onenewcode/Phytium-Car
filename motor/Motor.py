@@ -1,24 +1,26 @@
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../')
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 import smbus
 import time
 import traitlets
 import serial
 import struct
 from typing import Protocol
-from simple_pid import PID 
+from simple_pid import PID
 from common.move_data import MoveData
+
 
 # 定义电机驱动基类
 class MotorBase(Protocol):
 
-    def Control(self,data:MoveData)->None:
+    def Control(self, data: MoveData) -> None:
         pass
 
 
 # 定义 PCA9685 电机驱动类
-class PCA9685Motor( traitlets.HasTraits):
+class PCA9685Motor(traitlets.HasTraits):
     def __init__(self, d1, d2, d3, d4):
         super().__init__()
         # 设置 PCA9685 I2C 地址
@@ -263,7 +265,8 @@ class PCA9685Motor( traitlets.HasTraits):
 # 在 ModbusMotor 类中添加 PID 控制相关方法
 # 需要安装：pip install simple-pid
 
-class ModbusMotor(MotorBase ):
+
+class ModbusMotor(MotorBase):
     def __init__(self, port):
         super().__init__()
         self.port = port
@@ -275,10 +278,10 @@ class ModbusMotor(MotorBase ):
         self.right_speed = 0
         self.max_speed = 255  # 最大速度限制
         self.enable_motor()
-        
+
     def set_motor_speed(self, left_speed, right_speed):
         """设置电机速度
-        
+
         Args:
             left_speed: 左轮速度 (-255 到 255)
             right_speed: 右轮速度 (-255 到 255)
@@ -287,9 +290,7 @@ class ModbusMotor(MotorBase ):
         self.left_speed = max(-self.max_speed, min(self.max_speed, left_speed))
         self.right_speed = max(-self.max_speed, min(self.max_speed, right_speed))
 
-
-
-    def Control(self, data:MoveData):
+    def Control(self, data: MoveData):
         # TODO 目前只前进后悔控制速度，左转右转时速度影响转弯半径
         actions = {
             0: self.Stop,
@@ -299,16 +300,15 @@ class ModbusMotor(MotorBase ):
             6: self.Trun_Right,
         }
 
-        self.left_speed=data.speed
-        self.right_speed=data.speed
-        if data.direct==0:
-            actions[data.direct]()
-        current_time=time.time()
-        if current_time-self.last_time>self.interval:
-            print("Car_run_Task called with value:", data.direct)  # 调试打印
-            self.last_time=current_time
-            actions[data.direct]()
-
+        self.left_speed = data.speed
+        self.right_speed = data.speed
+        if data.direction == 0:
+            actions[data.direction]()
+        current_time = time.time()
+        if current_time - self.last_time > self.interval:
+            print("Car_run_Task called with value:", data.direction)  # 调试打印
+            self.last_time = current_time
+            actions[data.direction]()
 
     def send_modbus_command(self, command):
         try:
@@ -317,13 +317,16 @@ class ModbusMotor(MotorBase ):
                 ser.write(request)
         except (serial.SerialException, OSError) as e:
             print(f"Unable to open serial port {self.port}: {e}")
+
     # 添加一个装饰器函数来检查电机状态
     def check_motor_state(func):
         def wrapper(self, *args, **kwargs):
             if not self.running:
                 self.enable_motor()
             return func(self, *args, **kwargs)
+
         return wrapper
+
     # 计算 CRC 函数
     def calculate_crc(self, data):
         crc = 0xFFFF
@@ -337,16 +340,16 @@ class ModbusMotor(MotorBase ):
         return crc
 
     def enable_motor(self):
-        self.running=True
+        self.running = True
         self.send_modbus_command(self.get_modbus_command("enable"))
 
     def disable_motor(self):
-        self.running=False
+        self.running = False
         self.send_modbus_command(self.get_modbus_command("disable"))
 
     def Stop(self):
         self.send_modbus_command(self.get_modbus_command("stop"))
-  
+
     def Advance(self):
         self.send_modbus_command(self.get_modbus_command("advance"))
 
@@ -354,21 +357,20 @@ class ModbusMotor(MotorBase ):
 
         self.send_modbus_command(self.get_modbus_command("back"))
 
- 
     def Trun_Left(self):
-       
-        self.right_speed=-self.right_speed
+        self.left_speed = 100
+        self.right_speed = -100
         self.send_modbus_command(self.get_modbus_command("turn_left"))
- 
-    def Trun_Right(self):
-        self.left_speed=-self.left_speed
-        self.send_modbus_command(self.get_modbus_command("turn_right"))
 
+    def Trun_Right(self):
+        self.left_speed = -100
+        self.right_speed = 100
+        self.send_modbus_command(self.get_modbus_command("turn_right"))
 
     # 获取 Modbus 命令映射
     def set_motor_speed(self, left_speed, right_speed):
         """设置电机速度
-        
+
         Args:
             left_speed: 左轮速度 (-255 到 255)
             right_speed: 右轮速度 (-255 到 255)
@@ -376,16 +378,17 @@ class ModbusMotor(MotorBase ):
         # 限制速度范围
         self.left_speed = left_speed
         self.right_speed = right_speed
-        
+
     def get_modbus_command(self, action):
         """获取 Modbus 命令"""
+
         # 转换速度为十六进制格式
         def speed_to_hex(speed):
             if speed >= 0:
-                speed=abs(speed)+56
-                return f"FF {speed:02X}"  
+                speed = abs(speed) + 56
+                return f"FF {speed:02X}"
             else:
-                 return f"00 {abs(speed):02X}"  
+                return f"00 {abs(speed):02X}"
 
         # 基础命令模板
         base_commands = {
@@ -405,12 +408,12 @@ class ModbusMotor(MotorBase ):
         # 合并命令字典
         commands = {**base_commands, **movement_commands}
         command = commands.get(action, "")
-        
+
         # 如果命令非空，计算并添加 CRC
         if command:
             data = bytes.fromhex(command)
             crc = self.calculate_crc(data)
-            crc_bytes = struct.pack('<H', crc)
+            crc_bytes = struct.pack("<H", crc)
             command = f"{command} {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
         print(command)
         return command
@@ -446,27 +449,30 @@ class Motor:
         """转发方法调用到具体的驱动实现"""
         return getattr(self.driver, name)
 
+
 def calculate_crc(data):
-        crc = 0xFFFF
-        for byte in data:
-            crc ^= byte
-            for _ in range(8):
-                if crc & 0x0001:
-                    crc = (crc >> 1) ^ 0xA001
-                else:
-                    crc = crc >> 1
-        return crc
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            if crc & 0x0001:
+                crc = (crc >> 1) ^ 0xA001
+            else:
+                crc = crc >> 1
+    return crc
+
+
 def send_modbus_command(command):
-    
-            data_without_crc = command[:-5]
-            crc = calculate_crc(bytes.fromhex(data_without_crc))
-            crc_bytes = struct.pack('<H', crc)
-            command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
-            print(command_with_crc)
+
+    data_without_crc = command[:-5]
+    crc = calculate_crc(bytes.fromhex(data_without_crc))
+    crc_bytes = struct.pack("<H", crc)
+    command_with_crc = data_without_crc + f" {crc_bytes[0]:02X} {crc_bytes[1]:02X}"
+    print(command_with_crc)
+
+
 if __name__ == "__main__":
     # 使用 Modbus 驱动
     # car_controller:MotorBase = ModbusMotor(port="COM1")
     # car_controller.Control(1,100)
     send_modbus_command("05 44 23 18 33 18 FF 64 FF 64 AD 09")
-
-               

@@ -3,6 +3,7 @@ import pyarrow as pa
 import functools
 from common.move_data import MoveData
 
+
 class Move:
     def __init__(self, node, debug=True):
         self.node = node
@@ -17,7 +18,7 @@ class Move:
 
         return wrapper
 
-    def send(self, direction,speed):
+    def send(self, direction, speed):
         """
         发送运动数据给其他节点
         Args:
@@ -29,25 +30,25 @@ class Move:
         Raises:
             ZeroDivisionError: 如果除数为零，则抛出异常。
         """
-        data=MoveData(direction,speed).to_arrow_array()
+        data = MoveData(direction, speed).to_arrow_array()
         self.node.send_output("move", data)
 
     @debug_log
     def stop(self):
-        return self.send(0,0)
+        return self.send(0, 0)
 
     @debug_log
-    def advance(self,speed=2):
-        return self.send(1,speed)
+    def advance(self, speed=2):
+        return self.send(1, speed)
 
     @debug_log
-    def Back(self,speed=2):
-        return self.send(2,speed)
+    def Back(self, speed=2):
+        return self.send(2, speed)
 
     @debug_log
-    def turn_left(self,speed=2):
-        return self.send(5,speed)
+    def turn_left(self, speed=2):
+        return self.send(5, speed)
 
     @debug_log
-    def turn_right(self,speed=2):
-        return self.send(6,speed)
+    def turn_right(self, speed=2):
+        return self.send(6, speed)
