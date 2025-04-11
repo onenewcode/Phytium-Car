@@ -58,7 +58,7 @@ class ColorDetector:
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         # 锁眼位置
         self.recet_pos = (210, 354, 100, 100)
-        self.center = (320, 240)
+        self.center = (278, 298)
         self.h = 480
         self.w = 640
         self.ratio_value = ratio_value

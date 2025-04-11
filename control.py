@@ -23,11 +23,12 @@ def index():
 
 
 def get_command(direction):
+    global latest_move_data
     commands = {
-        "up": MoveData(1, 10),  # 前进
-        "down": MoveData(2, 10),  # 后退
-        "left": MoveData(5, 10),  # 左转
-        "right": MoveData(6, 10),  # 右转
+        "up": latest_move_data,  # 前进
+        "down": latest_move_data,  # 后退
+        "left": latest_move_data,  # 左转
+        "right": latest_move_data,  # 右转
     }
     return commands.get(direction)
 
@@ -70,14 +71,19 @@ def cv():
         while True:
             ret, frame = cap.read()
             frame = cv2.flip(frame, 0)
-            dector = ColorDetector([30, 70, 80], [50, 255, 255], min_area=50)
+            dector = ColorDetector([35, 70, 80], [50, 255, 255], min_area=50)
             frame, mask, data = dector.process(frame)
             move_data = car_cv.process_image(data)
             # 使用全局变量存储最新的 move_data 和 processed_frame
             global latest_move_data, processed_frame
             latest_move_data = move_data
-            processed_frame = mask  # 存储处理后的图像
-            # print(f"\r当前移动数据：{move_data}", end='', flush=True)
+
+            processed_frame = frame  # 存储处理后的图像
+            global car_controller
+
+            car_controller.Control(latest_move_data)
+            time.sleep(0.1)
+
     finally:
         cap.release()
 
@@ -89,7 +95,7 @@ def send_move_data():
             # 确保发送的数据包含前端期望的 direction 和 speed 字段
             move_data_dict = ViewData(latest_move_data).__dict__.copy()
             socketio.emit("move_data_update", {"move_data": move_data_dict})
-        time.sleep(0.1)  # 每100毫秒发送一次数据
+        time.sleep(0.01)  # 每100毫秒发送一次数据
 
 
 # 添加一个新函数，定期发送视频帧到前端
@@ -103,12 +109,12 @@ def send_video_frame():
                 jpeg_base64 = base64.b64encode(jpeg.tobytes()).decode("utf-8")
                 # 发送到前端
                 socketio.emit("video_frame_update", {"frame": jpeg_base64})
-        time.sleep(0.1)  # 每100毫秒发送一次
+        time.sleep(0.05)  # 每100毫秒发送一次
 
 
 if __name__ == "__main__":
     # 添加全局变量
-    latest_move_data = None
+    latest_move_data = MoveData(0, 0)
     processed_frame = None
     thread = None
 

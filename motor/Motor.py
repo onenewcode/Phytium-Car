@@ -358,13 +358,11 @@ class ModbusMotor(MotorBase):
         self.send_modbus_command(self.get_modbus_command("back"))
 
     def Trun_Left(self):
-        self.left_speed = 100
-        self.right_speed = -100
+        self.right_speed=-self.left_speed
         self.send_modbus_command(self.get_modbus_command("turn_left"))
 
     def Trun_Right(self):
-        self.left_speed = -100
-        self.right_speed = 100
+        self.left_speed=-self.right_speed
         self.send_modbus_command(self.get_modbus_command("turn_right"))
 
     # 获取 Modbus 命令映射
@@ -384,11 +382,17 @@ class ModbusMotor(MotorBase):
 
         # 转换速度为十六进制格式
         def speed_to_hex(speed):
-            if speed >= 0:
-                speed = abs(speed) + 56
-                return f"FF {speed:02X}"
+            if speed < 0:
+                data = (0xFFFF - abs(speed) + 1) & 0xFFFF
             else:
-                return f"00 {abs(speed):02X}"
+                data = speed
+            
+            # 提取高8位和低8位
+            high_byte = (data >> 8) & 0xFF  # 前8位
+            low_byte = data & 0xFF         # 后8位
+            
+            return f"{high_byte:02X} {low_byte:02X}"
+
 
         # 基础命令模板
         base_commands = {
@@ -408,7 +412,7 @@ class ModbusMotor(MotorBase):
         # 合并命令字典
         commands = {**base_commands, **movement_commands}
         command = commands.get(action, "")
-
+       
         # 如果命令非空，计算并添加 CRC
         if command:
             data = bytes.fromhex(command)

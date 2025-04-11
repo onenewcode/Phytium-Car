@@ -39,11 +39,11 @@ def back(node: Node, speed=2) -> MoveData:
     return send(node, 2, speed)
 
 
-def turn_left(node: Node, speed=50) -> MoveData:
+def turn_left(node: Node, speed=20) -> MoveData:
     return send(node, 5, speed)
 
 
-def turn_right(node: Node, speed=50) -> MoveData:
+def turn_right(node: Node, speed=20) -> MoveData:
     return send(node, 6, speed)
 
 
@@ -57,7 +57,7 @@ class CarCV:
         )
 
         self.last_command = "stop"
-        self.lost_count = 0
+        self.lost_count = 20
         self.max_lost_frames = 20
         self.search_direction = 1
         self.search_start_time = 0
@@ -66,25 +66,29 @@ class CarCV:
         self.last_valid_position = None
         self.debug_mode = False
         self.recet_pos = (210, 354, 100, 100)
-        self.center_x = 248
-        self.center_y = 402
+        self.center_x = 278
+        self.center_y = 298
         self.width = 640
         self.height = 480
         self.arm_state_Ready = True
         self.ratio_abs = 0.01
-        self.ratio_num = 0.03485026041666667
+        self.ratio_num = 0.02056640625
 
         # 添加低通滤波器参数
         self.alpha = 0.2  # 平滑因子 (0-1)
         self.last_x_offset = 0
         self.last_y_offset = 0
 
-        # 修改PID控制器参数
-        self.speed_pid = PID(Kp=0.5, Ki=0.1, Kd=0.05, setpoint=1.0)
-        self.speed_pid.output_limits = (2, 100)  # 速度范围限制
+        # 添加 PID 控制器
+        self.pid_distance = PID(Kp=1.0, Ki=0.1, Kd=0.05, setpoint=0.9)
+        self.pid_distance.output_limits = (1.0, 5.0)  # 限制输出范围
 
-        # 添加比率阈值参数
-        self.ratio_threshold = 0.03  # 当比率比值小于此阈值时使用最大速度
+        # 添加速度平滑参数
+        self.current_speed = 0.0
+        self.max_acceleration = 0.5  # 最大加速度
+        self.last_speed_update_time = time.time()
+        self.max_speed = 100
+        self.min_speed = 2
 
     def process_image(self, data: List[Calculate], node=None) -> MoveData:
 
@@ -97,36 +101,20 @@ class CarCV:
                 return self.handle_target_found(
                     data[0].x, data[0].y, data[0].ratio, current_time, node
                 )
+        else:
+            return stop(node)
 
     def handle_target_lost(self, current_time, node) -> MoveData:
         self.lost_count += 1
         self.target_found = False
 
         if self.lost_count >= self.max_lost_frames:
-            if not self.target_found:
-                self.search_start_time = current_time
-                self.search_direction = (
-                    1
-                    if self.last_valid_position
-                    and self.last_valid_position[0] > self.width / 2
-                    else -1
-                )
-                print(
-                    "进入搜索模式，方向：", "右" if self.search_direction > 0 else "左"
-                )
-
-            search_time = current_time - self.search_start_time
-            if search_time > 100:
-                self.search_direction *= -1
-                self.search_start_time = current_time
-                print("切换搜索方向：", "右" if self.search_direction > 0 else "左")
-
-            if self.search_direction > 0:
-                self.last_command_time = current_time
-                return turn_right(node)
-            else:
-                self.last_command_time = current_time
-                return turn_left(node)
+            self.last_command_time = current_time
+          
+            return turn_right(node)
+        else:
+     
+            return turn_right(node)
 
     def low_pass_filter(self, new_value, last_value):
         """低通滤波器"""
@@ -150,35 +138,62 @@ class CarCV:
         self.last_x_offset = x_offset
         self.last_y_offset = y_offset
 
-        # 计算比率比值并根据阈值决定速度
+        # 计算比率比值
         ratio_proportion = ratio / self.ratio_num if ratio > 0 else 0
-     
-        # 当比率比值小于阈值时，使用最大速度
-        if ratio_proportion < self.ratio_threshold:
-            speed = 100  # 使用最大速度
+
+        # 设定比率阈值，当达到这个阈值时认为已经足够接近目标
+        target_ratio_threshold = 0.9
+
+        # 如果比率比值小于阈值，说明还远，速度应该更快
+        if ratio_proportion < target_ratio_threshold:
+            # 使用非线性映射，随着接近目标速度逐渐降低
+            # 使用指数函数实现平滑过渡
+            speed_factor = 1.0 - (ratio_proportion / target_ratio_threshold)
+            speed = self.min_speed + (self.max_speed - self.min_speed) * (
+                speed_factor**2
+            )
         else:
-            # 否则使用PID控制器计算速度
-         
-            speed = int(self.speed_pid(ratio_proportion))
-            print("FD",speed)
+            # 已经非常接近目标，使用最小速度或停止
+            speed = 0 if ratio_proportion > 0.95 else self.min_speed
+
+        # 确保速度在合理范围内
+        speed = max(self.min_speed, min(speed, self.max_speed))
         # 打印调试信息
         if self.debug_mode:
             print(
                 f"目标位置：({x}, {y}), 偏移：({x_offset}, {y_offset}), "
                 f"目标比率：{self.ratio_num:.4f}, 当前比率：{ratio:.4f}, "
-                f"比率比值：{ratio_proportion:.4f}, 速度：{speed}"
+                f"比率比值：{ratio_proportion:.4f}, 速度：{speed:.2f}"
             )
 
         # 根据偏移控制移动
         if abs(x_offset) > 50:  # 如果水平偏移较大
+            # 计算转向速度系数，偏移越大速度越快
+            turn_speed_factor = min(abs(x_offset) / 200, 1.0)  # 将偏移量映射到 0-1 范围
+            
+            # 基础转向速度
+            base_turn_speed = int(speed * 5)
+            
+            # 根据偏移量大小计算实际转向速度
+            turn_speed = base_turn_speed + int(base_turn_speed * turn_speed_factor)
+            
+            # 限制最大转向速度
+            max_turn_speed = 100
+            turn_speed = min(turn_speed, max_turn_speed)
+            
+            if self.debug_mode:
+                print(f"水平偏移：{x_offset:.1f}, 转向速度：{turn_speed}")
+                
             if x_offset > 0:
-                return turn_left(node, speed)
+                return turn_left(node, turn_speed)  # 动态调整左转速度
             else:
-                return turn_right(node, speed)
+                return turn_right(node, turn_speed)  # 动态调整右转速度
+        elif ratio_proportion > 0.95:  # 如果已经非常接近目标
+            return stop(node)  # 停止
         elif y_offset > 50:  # 如果目标在下方
-            return back(node, speed)
+            return back(node, int(speed))
         elif y_offset < -50:  # 如果目标在上方
-            return advance(node, speed)
+            return advance(node, int(speed))
         else:
             return stop(node)
 
