@@ -87,8 +87,9 @@ class CarCV:
         self.current_speed = 0.0
         self.max_acceleration = 0.5  # 最大加速度
         self.last_speed_update_time = time.time()
-        self.max_speed = 100
-        self.min_speed = 2
+        # TODO 速度超过30 便会出现方向相反，
+        self.max_speed = 25
+        self.min_speed = 6
 
     def process_image(self, data: List[Calculate], node=None) -> MoveData:
 
@@ -107,14 +108,28 @@ class CarCV:
     def handle_target_lost(self, current_time, node) -> MoveData:
         self.lost_count += 1
         self.target_found = False
-
         if self.lost_count >= self.max_lost_frames:
-            self.last_command_time = current_time
-          
-            return turn_right(node)
+            self.search_start_time = current_time
+            self.search_direction = (
+                1
+                if self.last_valid_position
+                and self.last_valid_position[0] > self.width / 2
+                else -1
+            )
+            print(
+                "进入搜索模式，方向：", "右" if self.search_direction > 0 else "左"
+            )
+
+            search_time = current_time - self.search_start_time
+
+            if self.search_direction > 0:
+                self.last_command_time = current_time
+                return turn_left(node)
+            else:
+                self.last_command_time = current_time
+                return turn_right(node)
         else:
-     
-            return turn_right(node)
+            return stop(node)
 
     def low_pass_filter(self, new_value, last_value):
         """低通滤波器"""
@@ -151,10 +166,10 @@ class CarCV:
             speed_factor = 1.0 - (ratio_proportion / target_ratio_threshold)
             speed = self.min_speed + (self.max_speed - self.min_speed) * (
                 speed_factor**2
-            )
+            )*1.1
         else:
             # 已经非常接近目标，使用最小速度或停止
-            speed = 0 if ratio_proportion > 0.95 else self.min_speed
+            speed = 0 if ratio_proportion > 0.90 else self.min_speed
 
         # 确保速度在合理范围内
         speed = max(self.min_speed, min(speed, self.max_speed))
@@ -165,34 +180,19 @@ class CarCV:
                 f"目标比率：{self.ratio_num:.4f}, 当前比率：{ratio:.4f}, "
                 f"比率比值：{ratio_proportion:.4f}, 速度：{speed:.2f}"
             )
-
+        print(ratio_proportion)
         # 根据偏移控制移动
+        # TODO: 左右右转默认速度
         if abs(x_offset) > 50:  # 如果水平偏移较大
-            # 计算转向速度系数，偏移越大速度越快
-            turn_speed_factor = min(abs(x_offset) / 200, 1.0)  # 将偏移量映射到 0-1 范围
-            
-            # 基础转向速度
-            base_turn_speed = int(speed * 5)
-            
-            # 根据偏移量大小计算实际转向速度
-            turn_speed = base_turn_speed + int(base_turn_speed * turn_speed_factor)
-            
-            # 限制最大转向速度
-            max_turn_speed = 100
-            turn_speed = min(turn_speed, max_turn_speed)
-            
-            if self.debug_mode:
-                print(f"水平偏移：{x_offset:.1f}, 转向速度：{turn_speed}")
-                
             if x_offset > 0:
-                return turn_left(node, turn_speed)  # 动态调整左转速度
+                return turn_left(node,8)  # 动态调整左转速度
             else:
-                return turn_right(node, turn_speed)  # 动态调整右转速度
+                return turn_right(node,8)  # 动态调整右转速度
         elif ratio_proportion > 0.95:  # 如果已经非常接近目标
             return stop(node)  # 停止
-        elif y_offset > 50:  # 如果目标在下方
+        elif y_offset > 10:  # 如果目标在下方
             return back(node, int(speed))
-        elif y_offset < -50:  # 如果目标在上方
+        elif y_offset < -10:  # 如果目标在上方
             return advance(node, int(speed))
         else:
             return stop(node)

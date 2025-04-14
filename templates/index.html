@@ -138,6 +138,15 @@
             <span class="data-label">速度:</span>
             <span id="move-speed">-</span>
         </div>
+        <!-- 添加控制开关按钮 -->
+        <div class="data-item" style="margin-top: 15px; justify-content: center;">
+            <button id="toggle-control-btn" style="padding: 8px 15px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                启用控制
+            </button>
+        </div>
+        <div class="data-item" style="justify-content: center;">
+            <span id="control-status" style="font-weight: bold; color: #f44336;">控制已禁用</span>
+        </div>
     </div>
     
     <script>
@@ -147,9 +156,34 @@
         const videoFrame = document.getElementById('video-frame');
         const moveDirectionElement = document.getElementById('move-direction');
         const moveSpeedElement = document.getElementById('move-speed');
+        const toggleControlBtn = document.getElementById('toggle-control-btn');
+        const controlStatusElement = document.getElementById('control-status');
         const radius = controlArea.offsetWidth / 2 - controlPoint.offsetWidth / 2;
         const socket = io(); // 连接到后端 Socket.IO 服务器
         let activeDirection = null;
+        let controlEnabled = false; // 控制是否启用
+
+        // 控制开关按钮点击事件
+        toggleControlBtn.addEventListener('click', function() {
+            socket.emit('toggle_control');
+        });
+
+        // 接收后端发送的响应
+        socket.on('response', function(data) {
+            if (data.status.includes('enabled')) {
+                controlEnabled = true;
+                toggleControlBtn.style.backgroundColor = '#4CAF50';
+                toggleControlBtn.textContent = '禁用控制';
+                controlStatusElement.style.color = '#4CAF50';
+                controlStatusElement.textContent = '控制已启用';
+            } else if (data.status.includes('disabled')) {
+                controlEnabled = false;
+                toggleControlBtn.style.backgroundColor = '#f44336';
+                toggleControlBtn.textContent = '启用控制';
+                controlStatusElement.style.color = '#f44336';
+                controlStatusElement.textContent = '控制已禁用';
+            }
+        });
 
         // 接收后端发送的视频帧
         socket.on('video_frame_update', function(data) {

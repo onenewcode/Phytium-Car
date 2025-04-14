@@ -108,13 +108,15 @@ class ColorDetector:
         mask = cv2.inRange(hsv, self.lower, self.upper)
         # 形态学操作（消除噪声）
         # 定义结构元素（核），例如 5x5 的矩形
+        
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         # 开运算，先腐蚀再膨胀，用于去除小的噪点
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        ma=mask
         # 闭运算，先膨胀再腐蚀，用于填充孔洞
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=3)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2)
-        mask = cv2.GaussianBlur(mask, (11, 11), 0)
+        mask = cv2.GaussianBlur(mask, (5, 5), 0)
 
         # 查找轮廓
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -159,9 +161,8 @@ class ColorDetector:
                     (255, 255, 255),
                     2,
                 )
-
                 data.append(Calculate(center_x, center_y, self.ratio(h, w)))
-        return processed_frame, mask, data
+        return processed_frame, ma, data
 
 
 # 接受传入的图像，发送处理后的图像，轮廓，中心点，掩膜

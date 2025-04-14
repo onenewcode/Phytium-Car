@@ -23,7 +23,6 @@ def index():
 
 
 def get_command(direction):
-    global latest_move_data
     commands = {
         "up": latest_move_data,  # 前进
         "down": latest_move_data,  # 后退
@@ -35,28 +34,51 @@ def get_command(direction):
 
 @socketio.on("control")
 def handle_control(data):
+    global global_flag
     direction = data.get("direction")
     if direction in ["up", "down", "left", "right"]:
-        car_controller.Control(get_command(direction))
-        emit("response", {"status": "Moving " + direction})
+        if global_flag:
+            car_controller.Control(get_command(direction))
+            emit("response", {"status": "Moving " + direction})
+        else:
+            emit("response", {"status": "Control disabled"})
     else:
-        move_data = MoveData(0, 0)
-        car_controller.Control(move_data)
-        emit("response", {"status": "Stopped"})
+        if global_flag:
+            move_data = MoveData(0, 0)
+            car_controller.Control(move_data)
+            emit("response", {"status": "Stopped"})
+        else:
+            emit("response", {"status": "Control disabled"})
 
 
 @socketio.on("disable")
 def handle_disable():
-    move_data = MoveData(0, 0)
-    car_controller.Control(move_data)
-    emit("response", {"status": "Disabled"})
+    global global_flag
+    if global_flag:
+        move_data = MoveData(0, 0)
+        car_controller.Control(move_data)
+        emit("response", {"status": "Disabled"})
+    else:
+        emit("response", {"status": "Control already disabled"})
 
 
 @socketio.on("stop")
 def handle_stop():
-    move_data = MoveData(0, 0)
-    car_controller.Control(move_data)
-    emit("response", {"status": "Stopped"})
+    global global_flag
+    if global_flag:
+        move_data = MoveData(0, 0)
+        car_controller.Control(move_data)
+        emit("response", {"status": "Stopped"})
+    else:
+        emit("response", {"status": "Control disabled"})
+
+
+@socketio.on("toggle_control")
+def handle_toggle_control():
+    global global_flag
+    global_flag = not global_flag
+    status = "enabled" if global_flag else "disabled"
+    emit("response", {"status": f"Control {status}"})
 
 
 def cv():
@@ -71,18 +93,18 @@ def cv():
         while True:
             ret, frame = cap.read()
             frame = cv2.flip(frame, 0)
-            dector = ColorDetector([35, 70, 80], [50, 255, 255], min_area=50)
+            dector = ColorDetector([30, 70, 80], [50, 255, 255], min_area=50)
             frame, mask, data = dector.process(frame)
             move_data = car_cv.process_image(data)
             # 使用全局变量存储最新的 move_data 和 processed_frame
-            global latest_move_data, processed_frame
+            global latest_move_data, processed_frame,global_flag
             latest_move_data = move_data
 
-            processed_frame = frame  # 存储处理后的图像
+            processed_frame = mask  # 存储处理后的图像
             global car_controller
-
-            car_controller.Control(latest_move_data)
-            time.sleep(0.1)
+            if global_flag==True:
+                car_controller.Control(latest_move_data)
+            time.sleep(0.01)
 
     finally:
         cap.release()
@@ -95,26 +117,27 @@ def send_move_data():
             # 确保发送的数据包含前端期望的 direction 和 speed 字段
             move_data_dict = ViewData(latest_move_data).__dict__.copy()
             socketio.emit("move_data_update", {"move_data": move_data_dict})
-        time.sleep(0.01)  # 每100毫秒发送一次数据
+        time.sleep(0.01)  # 每 100 毫秒发送一次数据
 
 
 # 添加一个新函数，定期发送视频帧到前端
 def send_video_frame():
     while True:
         if processed_frame is not None:
-            # 将OpenCV图像转换为JPEG
+            # 将 OpenCV 图像转换为 JPEG
             ret, jpeg = cv2.imencode(".jpg", processed_frame)
             if ret:
-                # 将JPEG转换为Base64字符串
+                # 将 JPEG 转换为 Base64 字符串
                 jpeg_base64 = base64.b64encode(jpeg.tobytes()).decode("utf-8")
                 # 发送到前端
                 socketio.emit("video_frame_update", {"frame": jpeg_base64})
-        time.sleep(0.05)  # 每100毫秒发送一次
+        time.sleep(0.05)  # 每 100 毫秒发送一次
 
 
 if __name__ == "__main__":
     # 添加全局变量
     latest_move_data = MoveData(0, 0)
+    global_flag=False
     processed_frame = None
     thread = None
 

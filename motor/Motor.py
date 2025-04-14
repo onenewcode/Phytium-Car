@@ -386,12 +386,10 @@ class ModbusMotor(MotorBase):
                 data = (0xFFFF - abs(speed) + 1) & 0xFFFF
             else:
                 data = speed
-            
-            # 提取高8位和低8位
-            high_byte = (data >> 8) & 0xFF  # 前8位
-            low_byte = data & 0xFF         # 后8位
-            
-            return f"{high_byte:02X} {low_byte:02X}"
+        
+            # 转换为大端序字节
+            return f"{(data >> 8) & 0xFF:02X} {data & 0xFF:02X}"
+
 
 
         # 基础命令模板
@@ -404,7 +402,7 @@ class ModbusMotor(MotorBase):
         # 运动命令需要动态生成
         movement_commands = {
             "advance": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
-            "back": f"05 44 23 18 33 18 {speed_to_hex(-self.right_speed)} {speed_to_hex(-self.left_speed)}",
+            "back": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
             "turn_left": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
             "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
         }
