@@ -402,7 +402,7 @@ class ModbusMotor(MotorBase):
         # 运动命令需要动态生成
         movement_commands = {
             "advance": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
-            "back": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
+            "back": f"05 44 23 18 33 18 {speed_to_hex(-self.right_speed)} {speed_to_hex(-self.left_speed)}",
             "turn_left": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
             "turn_right": f"05 44 23 18 33 18 {speed_to_hex(self.right_speed)} {speed_to_hex(self.left_speed)}",
         }

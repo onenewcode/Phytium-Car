@@ -80,14 +80,15 @@ class CarCV:
         self.last_y_offset = 0
 
         # 添加 PID 控制器
-        self.pid_distance = PID(Kp=1.0, Ki=0.1, Kd=0.05, setpoint=0.9)
+        self.pid_distance = PID(Kp=1.0, Ki=0.1, Kd=0.05, setpoint=1)
         self.pid_distance.output_limits = (1.0, 5.0)  # 限制输出范围
 
+        self.target_ratio_threshold=0.6
         # 添加速度平滑参数
         self.current_speed = 0.0
         self.max_acceleration = 0.5  # 最大加速度
         self.last_speed_update_time = time.time()
-        # TODO 速度超过30 便会出现方向相反，
+        # TODO 速度超过 30 便会出现方向相反，
         self.max_speed = 25
         self.min_speed = 6
 
@@ -156,17 +157,17 @@ class CarCV:
         # 计算比率比值
         ratio_proportion = ratio / self.ratio_num if ratio > 0 else 0
 
-        # 设定比率阈值，当达到这个阈值时认为已经足够接近目标
-        target_ratio_threshold = 0.9
 
-        # 如果比率比值小于阈值，说明还远，速度应该更快
-        if ratio_proportion < target_ratio_threshold:
-            # 使用非线性映射，随着接近目标速度逐渐降低
-            # 使用指数函数实现平滑过渡
-            speed_factor = 1.0 - (ratio_proportion / target_ratio_threshold)
-            speed = self.min_speed + (self.max_speed - self.min_speed) * (
-                speed_factor**2
-            )*1.1
+        # 使用 PID 控制器计算速度
+        if ratio_proportion < self.target_ratio_threshold:
+            # 设置 PID 的目标值为目标比率阈值
+          
+            # 使用 PID 控制器计算速度调整量
+            pid_output = self.pid_distance(ratio_proportion)
+            # 将 PID 输出映射到速度范围
+            speed_factor = (self.target_ratio_threshold - ratio_proportion) / self.target_ratio_threshold
+            # 基础速度 + PID 调整的速度
+            speed = self.min_speed + (self.max_speed - self.min_speed) * speed_factor * pid_output
         else:
             # 已经非常接近目标，使用最小速度或停止
             speed = 0 if ratio_proportion > 0.90 else self.min_speed

@@ -23,11 +23,12 @@ def index():
 
 
 def get_command(direction):
+    # 控制速度逻辑
     commands = {
-        "up": latest_move_data,  # 前进
-        "down": latest_move_data,  # 后退
-        "left": latest_move_data,  # 左转
-        "right": latest_move_data,  # 右转
+        "up": MoveData(2,100),  # 前进
+        "down": MoveData(1,100),  # 后退
+        "left": MoveData(5,25),  # 左转
+        "right": MoveData(6,25),  # 右转
     }
     return commands.get(direction)
 
@@ -37,18 +38,19 @@ def handle_control(data):
     global global_flag
     direction = data.get("direction")
     if direction in ["up", "down", "left", "right"]:
-        if global_flag:
+        if not global_flag:
             car_controller.Control(get_command(direction))
             emit("response", {"status": "Moving " + direction})
         else:
             emit("response", {"status": "Control disabled"})
     else:
-        if global_flag:
+        if  global_flag:
             move_data = MoveData(0, 0)
             car_controller.Control(move_data)
             emit("response", {"status": "Stopped"})
         else:
             emit("response", {"status": "Control disabled"})
+    time.sleep(0.05)
 
 
 @socketio.on("disable")
@@ -100,7 +102,7 @@ def cv():
             global latest_move_data, processed_frame,global_flag
             latest_move_data = move_data
 
-            processed_frame = mask  # 存储处理后的图像
+            processed_frame = frame  # 存储处理后的图像
             global car_controller
             if global_flag==True:
                 car_controller.Control(latest_move_data)
