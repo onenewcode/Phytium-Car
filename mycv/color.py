@@ -59,6 +59,7 @@ class ColorDetector:
         # 锁眼位置
         self.recet_pos = (210, 354, 100, 100)
         self.center = (278, 298)
+        #  图片的高和宽
         self.h = 480
         self.w = 640
         self.ratio_value = ratio_value

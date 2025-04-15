@@ -92,7 +92,22 @@ class CarCV:
         self.max_speed = 25
         self.min_speed = 6
 
-    def process_image(self, data: List[Calculate], node=None) -> MoveData:
+    def process_data(self, data: List[Calculate], node=None) -> MoveData:
+        """
+        处理目标检测数据并生成相应的运动指令
+        
+        Args:
+            data (List[Calculate]): 包含目标检测结果的列表，每个元素包含目标的位置和比例信息
+            node (Node, optional): 用于发送运动指令的节点对象. Defaults to None.
+            
+        Returns:
+            MoveData: 返回运动指令数据，包含运动方向和速度
+            
+        Note:
+            - 当检测列表为空时，会触发目标丢失处理逻辑
+            - 当检测到目标时，会根据目标位置和比例计算相应的运动指令
+            - 只有在机械臂就绪状态(arm_state_Ready)下才会执行运动控制
+        """
 
         current_time = time.time()
 
@@ -160,14 +175,24 @@ class CarCV:
 
         # 使用 PID 控制器计算速度
         if ratio_proportion < self.target_ratio_threshold:
-            # 设置 PID 的目标值为目标比率阈值
-          
             # 使用 PID 控制器计算速度调整量
             pid_output = self.pid_distance(ratio_proportion)
-            # 将 PID 输出映射到速度范围
-            speed_factor = (self.target_ratio_threshold - ratio_proportion) / self.target_ratio_threshold
-            # 基础速度 + PID 调整的速度
+            # 使用非线性映射替代线性衰减，使速度变化更平滑
+            speed_factor = ((self.target_ratio_threshold - ratio_proportion) / self.target_ratio_threshold) ** 0.7
+            # 基础速度 + 非线性调整的速度
             speed = self.min_speed + (self.max_speed - self.min_speed) * speed_factor * pid_output
+            
+            # 应用速度平滑处理
+            time_delta = current_time - self.last_speed_update_time
+            self.last_speed_update_time = current_time
+            
+            # 限制速度变化率
+            max_speed_change = self.max_acceleration * time_delta
+            speed_diff = speed - self.current_speed
+            if abs(speed_diff) > max_speed_change:
+                speed = self.current_speed + max_speed_change * (1 if speed_diff > 0 else -1)
+            
+            self.current_speed = speed
         else:
             # 已经非常接近目标，使用最小速度或停止
             speed = 0 if ratio_proportion > 0.90 else self.min_speed

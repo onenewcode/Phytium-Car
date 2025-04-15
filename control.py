@@ -94,10 +94,15 @@ def cv():
     try:
         while True:
             ret, frame = cap.read()
+            # 摄像头采集的是由 x 轴反转的图像，将图像翻转
             frame = cv2.flip(frame, 0)
+            
+            # 创建颜色检测器实例，设置 HSV 颜色范围（黄色网球）和最小检测面积
             dector = ColorDetector([30, 70, 80], [50, 255, 255], min_area=50)
+            # 处理当前帧，返回处理后的图像、掩码和目标检测数据（位置和比例信息）
             frame, mask, data = dector.process(frame)
-            move_data = car_cv.process_image(data)
+            # 根据检测到的目标数据生成相应的运动控制指令
+            move_data = car_cv.process_data(data)
             # 使用全局变量存储最新的 move_data 和 processed_frame
             global latest_move_data, processed_frame,global_flag
             latest_move_data = move_data
@@ -105,6 +110,7 @@ def cv():
             processed_frame = frame  # 存储处理后的图像
             global car_controller
             if global_flag==True:
+                # 发送指令到电机
                 car_controller.Control(latest_move_data)
             time.sleep(0.01)
 
